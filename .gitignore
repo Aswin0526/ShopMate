@@ -5,6 +5,7 @@
 **/Scripts/
 **/Include/
 **/pyvenv.cfg
+**/share/
 
 # Ignore common venv names
 venv/
