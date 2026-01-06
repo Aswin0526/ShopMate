@@ -144,7 +144,7 @@ const registerCustomer = async (req, res) => {
 const loginCustomer = async (req, res) => {
   try {
     const { customer_email, customer_password } = req.body;
-
+    console.log(customer_email, customer_password);
     // Validation
     if (!customer_email || !customer_password) {
       return res.status(400).json({

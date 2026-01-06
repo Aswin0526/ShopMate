@@ -325,6 +325,76 @@ const getOwnerProfile = async (req, res) => {
   }
 };
 
+const getFeedBack = async (req, res) => {
+  try {
+    const { shop_id } = req.body;
+    console.log("inside");
+    if (!shop_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required",
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT feedback, ratings, created_at 
+      FROM shop_feedback
+      WHERE shop_id = $1
+      ORDER BY created_at DESC
+      LIMIT 50`,
+      [shop_id]
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error("Get feedback error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const getAvgRatings = async (req, res) => {
+  try {
+    const { shop_id } = req.body;
+    console.log("inside Avg ratings");
+    if (!shop_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required",
+      });
+    }
+
+    const result = await pool.query(
+      `
+    SELECT ROUND(AVG(ratings), 2) AS average_rating
+    FROM shop_feedback
+    WHERE shop_id = $1;
+    `,
+      [shop_id]
+    );
+
+    const avgRating = result.rows[0].average_rating;
+    console.log(avgRating);
+    res.status(200).json({
+      success: true,
+      data: avgRating,
+    });
+  } catch (error) {
+    console.error("Get feedback error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 const logoutOwner = async (req, res) => {
   try {
     const { refresh_token } = req.body;
@@ -359,5 +429,7 @@ module.exports = {
   registerOwner,
   loginOwner,
   getOwnerProfile,
+  getFeedBack,
+  getAvgRatings,
   logoutOwner,
 };
