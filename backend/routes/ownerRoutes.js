@@ -5,6 +5,8 @@ const {
   registerOwnerBasic,
   uploadShopImage,
   completeRegistration,
+  getLogo,
+  getShopImages,
   loginOwner,
   getOwnerProfile,
   getFeedBack,
@@ -18,6 +20,8 @@ router.post("/register", registerOwner);
 router.post("/register-basic", registerOwnerBasic); // Register without images (for large payloads)
 router.post("/upload-image", uploadShopImage); // Upload single image (logo or shop pic)
 router.post("/complete-registration", completeRegistration); // Upload all images after basic registration
+router.post("/get-logo", getLogo); // Get shop logo
+router.post("/get-shop-images", getShopImages); // Get all shop images
 router.post("/login", loginOwner);
 router.post("/getfeedbacks", verifyToken, isOwner, getFeedBack);
 router.post("/getAvgRatings", verifyToken, isOwner, getAvgRatings);

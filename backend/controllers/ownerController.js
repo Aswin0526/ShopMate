@@ -11,15 +11,12 @@ const {
   isValidPincode,
 } = require("../utils/validation");
 
-// Helper function to convert base64 to Buffer
 const base64ToBuffer = (base64String) => {
   if (!base64String) return null;
-  // Remove the data URL prefix if present
   const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
   return Buffer.from(base64Data, "base64");
 };
 
-// Helper function to insert shop images - matches schema with logo, pic1-pic5 columns
 const insertShopImages = async (client, shopId, logo, images) => {
   try {
     const logoBuffer = base64ToBuffer(logo);
@@ -740,7 +737,6 @@ const registerOwnerBasic = async (req, res) => {
   }
 };
 
-// Upload a single image (logo or shop image)
 const uploadShopImage = async (req, res) => {
   const client = await pool.connect();
 
@@ -807,7 +803,6 @@ const uploadShopImage = async (req, res) => {
   }
 };
 
-// Complete shop registration by uploading logo and all images
 const completeRegistration = async (req, res) => {
   const client = await pool.connect();
 
@@ -840,7 +835,6 @@ const completeRegistration = async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Use UPDATE instead of INSERT since row already exists from registerOwnerBasic
     const logoBuffer = base64ToBuffer(logo);
     const pic1Buffer =
       images && images.pic1 ? base64ToBuffer(images.pic1) : null;
@@ -885,11 +879,121 @@ const completeRegistration = async (req, res) => {
   }
 };
 
+// Get shop logo
+const getLogo = async (req, res) => {
+  try {
+    const { shop_id } = req.body;
+
+    if (!shop_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required",
+      });
+    }
+
+    const result = await pool.query(
+      "SELECT logo FROM shop_images WHERE shop_id = $1",
+      [shop_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Shop not found",
+      });
+    }
+
+    const logoData = result.rows[0].logo;
+
+    if (!logoData) {
+      return res.status(404).json({
+        success: false,
+        message: "Logo not found",
+      });
+    }
+
+    // Convert buffer to base64
+    const base64Image = logoData.toString("base64");
+    const imageType = logoData.type || "image/jpeg";
+
+    res.status(200).json({
+      success: true,
+      data: {
+        logo: `data:${imageType};base64,${base64Image}`,
+      },
+    });
+  } catch (error) {
+    console.error("Get logo error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get shop images
+const getShopImages = async (req, res) => {
+  try {
+    const { shop_id } = req.body;
+
+    if (!shop_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required",
+      });
+    }
+
+    const result = await pool.query(
+      "SELECT logo, pic1, pic2, pic3, pic4, pic5 FROM shop_images WHERE shop_id = $1",
+      [shop_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Shop not found",
+      });
+    }
+
+    const imagesData = result.rows[0];
+
+    // Helper function to convert buffer to base64
+    const bufferToBase64 = (buffer) => {
+      if (!buffer) return null;
+      return `data:${buffer.type || "image/jpeg"};base64,${buffer.toString(
+        "base64"
+      )}`;
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        logo: bufferToBase64(imagesData.logo),
+        pic1: bufferToBase64(imagesData.pic1),
+        pic2: bufferToBase64(imagesData.pic2),
+        pic3: bufferToBase64(imagesData.pic3),
+        pic4: bufferToBase64(imagesData.pic4),
+        pic5: bufferToBase64(imagesData.pic5),
+      },
+    });
+  } catch (error) {
+    console.error("Get shop images error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerOwner,
   registerOwnerBasic,
   uploadShopImage,
   completeRegistration,
+  getLogo,
+  getShopImages,
   loginOwner,
   getOwnerProfile,
   getFeedBack,
