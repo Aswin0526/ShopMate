@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './Register.css';
 
 const Register = () => {
@@ -7,7 +7,16 @@ const Register = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Customer form state
+  // Refs for file inputs to allow clearing
+  const logoInputRef = useRef(null);
+  const imageInputRefs = useRef({
+    pic1: null,
+    pic2: null,
+    pic3: null,
+    pic4: null,
+    pic5: null
+  });
+
   const [customerForm, setCustomerForm] = useState({
     customer_name: '',
     customer_email: '',
@@ -20,7 +29,6 @@ const Register = () => {
     confirmPassword: ''
   });
 
-  // Owner form state
   const [ownerForm, setOwnerForm] = useState({
     owner_name: '',
     owner_email: '',
@@ -34,10 +42,125 @@ const Register = () => {
     shop_state: '',
     shop_city: '',
     shop_pincode: '',
+    shop_type: '',
     shop_gmap_link: '',
     shop_password: '',
     confirmPassword: ''
   });
+
+  // Image upload state
+  const [logo, setLogo] = useState(null);
+  const [images, setImages] = useState({
+    pic1: null,
+    pic2: null,
+    pic3: null,
+    pic4: null,
+    pic5: null
+  });
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState({
+    pic1: null,
+    pic2: null,
+    pic3: null,
+    pic4: null,
+    pic5: null
+  });
+
+  // Helper function to convert file to base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Handle logo upload
+  const handleLogoChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file for logo');
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Logo file size must be less than 5MB');
+        return;
+      }
+      
+      try {
+        const base64 = await fileToBase64(file);
+        setLogo(base64);
+        setLogoPreview(URL.createObjectURL(file));
+        setError('');
+      } catch (err) {
+        setError('Error reading logo file');
+        console.error('Logo read error:', err);
+      }
+    }
+  };
+
+  // Handle image upload
+  const handleImageChange = async (e, imageKey) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError(`Please select a valid image file for ${imageKey}`);
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`${imageKey} file size must be less than 5MB`);
+        return;
+      }
+      
+      try {
+        const base64 = await fileToBase64(file);
+        setImages(prev => ({
+          ...prev,
+          [imageKey]: base64
+        }));
+        setImagePreviews(prev => ({
+          ...prev,
+          [imageKey]: URL.createObjectURL(file)
+        }));
+        setError('');
+      } catch (err) {
+        setError(`Error reading ${imageKey} file`);
+        console.error('Image read error:', err);
+      }
+    }
+  };
+
+  const removeLogo = () => {
+    setLogo(null);
+    setLogoPreview(null);
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (imageKey) => {
+    setImages(prev => ({
+      ...prev,
+      [imageKey]: null
+    }));
+    setImagePreviews(prev => ({
+      ...prev,
+      [imageKey]: null
+    }));
+    if (imageInputRefs.current[imageKey]) {
+      imageInputRefs.current[imageKey].value = '';
+    }
+  };
+
+  const hasAtLeastOneImage = () => {
+    return images.pic1 || images.pic2 || images.pic3 || images.pic4 || images.pic5;
+  };
 
   const handleCustomerChange = (e) => {
     const { name, value } = e.target;
@@ -117,8 +240,41 @@ const Register = () => {
       return;
     }
 
+    // Validate logo (mandatory)
+    if (!logo) {
+      setError('Shop logo is mandatory. Please upload a logo.');
+      setLoading(false);
+      return;
+    }
+
+    // Validate at least one image
+    if (!hasAtLeastOneImage()) {
+      setError('At least one shop image is required. Please upload at least one image.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:5000/api/owners/register', {
+      // Step 1: Register shop with basic data (no images)
+      console.log(
+        "data from register form",
+              {owner_name: ownerForm.owner_name,
+          owner_email: ownerForm.owner_email,
+          owner_phone: ownerForm.owner_phone,
+          owner_location: ownerForm.owner_location,
+          shop_name: ownerForm.shop_name,
+          shop_phone: ownerForm.shop_phone,
+          shop_email: ownerForm.shop_email,
+          shop_website: ownerForm.shop_website,
+          shop_country: ownerForm.shop_country,
+          shop_state: ownerForm.shop_state,
+          shop_city: ownerForm.shop_city,
+          shop_pincode: ownerForm.shop_pincode,
+          shop_type: ownerForm.shop_type,
+          shop_gmap_link: ownerForm.shop_gmap_link,
+          shop_password: ownerForm.shop_password}
+      )
+      const basicResponse = await fetch('http://localhost:5000/api/owners/register-basic', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,20 +292,60 @@ const Register = () => {
           shop_state: ownerForm.shop_state,
           shop_city: ownerForm.shop_city,
           shop_pincode: ownerForm.shop_pincode,
+          shop_type: ownerForm.shop_type,
           shop_gmap_link: ownerForm.shop_gmap_link,
           shop_password: ownerForm.shop_password
         }),
       });
+      
+      const basicData = await basicResponse.json();
 
-      const data = await response.json();
+      if (!basicData.success) {
+        setError(basicData.message || 'Registration failed. Please try again.');
+        setLoading(false);
+        return;
+      }
 
-      if (data.success) {
-        setSuccess('Registration successful! Redirecting to login...');
+      const shopId = basicData.data.shop.shop_id;
+      setSuccess('Basic registration successful! Uploading images...');
+
+      // Step 2: Upload all images in one request
+      try {
+        const completeResponse = await fetch('http://localhost:5000/api/owners/complete-registration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shop_id: shopId,
+            logo: logo,
+            images: {
+              pic1: images.pic1,
+              pic2: images.pic2,
+              pic3: images.pic3,
+              pic4: images.pic4,
+              pic5: images.pic5
+            }
+          }),
+        });
+
+        const completeData = await completeResponse.json();
+        console.log('Complete registration response:', completeData);
+
+        if (completeData.success) {
+          setSuccess('Registration successful! Redirecting to login...');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          setError(completeData.message || 'Image upload failed. Please try again.');
+        }
+      } catch (imageError) {
+        console.error('Image upload error:', imageError);
+        setError('Registration completed but images failed to upload. Please try uploading images later.');
         setTimeout(() => {
           window.location.href = '/login';
-        }, 2000);
-      } else {
-        setError(data.message || 'Registration failed. Please try again.');
+        }, 3000);
       }
     } catch (err) {
       setError('Network error. Please check your connection.');
@@ -488,16 +684,34 @@ const Register = () => {
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="shop_gmap_link">Google Maps Link (Optional)</label>
-              <input
-                type="url"
-                id="shop_gmap_link"
-                name="shop_gmap_link"
-                value={ownerForm.shop_gmap_link}
-                onChange={handleOwnerChange}
-                placeholder="https://maps.google.com/..."
-              />
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="shop_gmap_link">Google Maps Link (Optional)</label>
+                <input
+                  type="url"
+                  id="shop_gmap_link"
+                  name="shop_gmap_link"
+                  value={ownerForm.shop_gmap_link}
+                  onChange={handleOwnerChange}
+                  placeholder="https://maps.google.com/..."
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="shop_type">Shop type</label>
+                <select 
+                  name="shop_type" 
+                  value={ownerForm.shop_type} 
+                  onChange={handleOwnerChange} 
+                  required
+                >
+                  <option value="">Select shop type</option>
+                  <option value="electronics">Electronics</option>
+                  <option value="grocery">Grocery</option>
+                  <option value="cosmetics">Cosmetics</option>
+                  <option value="bookstore">Bookstore</option>
+                  <option value="clothing">Clothing</option>
+                </select>
+              </div>
             </div>
 
             <div className="form-row">
@@ -513,8 +727,8 @@ const Register = () => {
                   required
                   minLength={6}
                 />
-              </div>
-              <div className="form-group">
+                </div>
+                <div className='form-group'>
                 <label htmlFor="confirmPassword">Confirm Password</label>
                 <input
                   type="password"
@@ -525,6 +739,80 @@ const Register = () => {
                   placeholder="Confirm password"
                   required
                 />
+              </div>
+            </div>
+
+            {/* Image Upload Section */}
+            <h3>Shop Images</h3>
+            
+            {/* Logo Upload - Mandatory */}
+            <div className="image-upload-section">
+              <div className="form-group logo-upload">
+                <label htmlFor="logo" className="required">Shop Logo</label>
+                <div className="file-upload-container">
+                  {!logoPreview ? (
+                    <div className="upload-placeholder">
+                      <span className="upload-icon">📷</span>
+                      <span>Click to upload logo</span>
+                      <span className="upload-hint">(Max 5MB, image files only)</span>
+                    </div>
+                  ) : (
+                    <div className="image-preview">
+                      <img src={logoPreview} alt="Logo preview" />
+                      <button type="button" className="remove-image" onClick={removeLogo}>
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    id="logo"
+                    ref={logoInputRef}
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="file-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Shop Images - At least one required */}
+            <div className="images-upload-section">
+              <div className="form-group">
+                <label>Shop Images (Upload at least 1, up to 5)</label>
+                <div className="images-grid">
+                  {['pic1', 'pic2', 'pic3', 'pic4', 'pic5'].map((picKey) => (
+                    <div key={picKey} className="image-upload-box">
+                      <div className="file-upload-container small">
+                        {!imagePreviews[picKey] ? (
+                          <div className="upload-placeholder small">
+                            <span className="upload-icon">+</span>
+                            <span>{picKey.toUpperCase()}</span>
+                          </div>
+                        ) : (
+                          <div className="image-preview small">
+                            <img src={imagePreviews[picKey]} alt={`${picKey} preview`} />
+                            <button 
+                              type="button" 
+                              className="remove-image small" 
+                              onClick={() => removeImage(picKey)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          id={picKey}
+                          ref={(el) => imageInputRefs.current[picKey] = el}
+                          accept="image/*"
+                          onChange={(e) => handleImageChange(e, picKey)}
+                          className="file-input"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -546,4 +834,3 @@ const Register = () => {
 };
 
 export default Register;
-

@@ -69,3 +69,17 @@ CREATE INDEX IF NOT EXISTS idx_shops_owner ON shops(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shops_email ON shops(shop_email);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(refresh_token);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id, user_type);
+
+-- Shop Images Table (stores logo and shop images as BYTEA)
+CREATE TABLE IF NOT EXISTS shop_images (
+    shop_id INTEGER PRIMARY KEY,
+    logo BYTEA NOT NULL,
+    pic1 BYTEA,
+    pic2 BYTEA,
+    pic3 BYTEA,
+    pic4 BYTEA,
+    pic5 BYTEA,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
+);
