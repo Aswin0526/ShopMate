@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import '../styles/Shopdash.css';
 import Overview from '../components/Overview';
 import Update from '../components/Update';
+import Stock from '../components/Stock';
 
 const Shopdash = () => {
   const [shopData, setShopData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [feedbacks, setFeedbacks] = useState([]);
+  const [logo, setLogo] = useState(null);
+  const [shopImages, setShopImages] = useState({});
 
   const renderStars = (rating) => {
     const fullStars = Math.floor(rating);
@@ -29,6 +32,44 @@ const Shopdash = () => {
     return stars;
   };
 
+  const fetchLogo = async () => {
+    try {
+        const response = await fetch('http://localhost:5000/api/owners/get-logo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ shop_id: shopData.shop_id }),
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            console.log("Logo fetch")
+            setLogo(result.data.logo);
+        }
+    } catch (err) {
+        console.error('Error fetching logo:', err);
+    }
+    };
+
+    const fetchShopImages = async () => {
+        try {
+            const response = await fetch('http://localhost:5000/api/owners/get-shop-images', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ shop_id: shopData.shop_id }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                setShopImages(result.data);
+            }
+        } catch (err) {
+            console.error('Error fetching shop images:', err);
+        }
+    };
+
   useEffect(() => {
     const storedShopData = localStorage.getItem('user_data');
     if (storedShopData) {
@@ -47,7 +88,8 @@ const Shopdash = () => {
     if (!shopData) return;
     
     const shopId = shopData.shop_id || shopData.id;
-    console.log("Using shopId:", shopId);
+    fetchLogo()
+    fetchShopImages()
     
     if (!shopId) {
       console.log("No shop ID found in shopData");
@@ -108,13 +150,13 @@ const Shopdash = () => {
       {/* Header Section */}
       <header className="header">
         <div className="header-left">
-          <div className="shop-logo">
-            {shopData.shop_name ? shopData.shop_name.charAt(0).toUpperCase() : 'S'}
-          </div>
-          <div className="shop-info">
-            <h1 className="shop-name">{shopData.shop_name || 'My Shop'}</h1>
-            <p className="shop-email">{shopData.shop_email}</p>
-          </div>
+          <div className="logo-section">
+                {logo ? (
+                    <img src={logo} alt="Shop Logo" style={{ maxWidth: '100px', maxHeight: '100px' }} />
+                ) : (
+                    <p>No logo uploaded</p>
+                )}
+            </div>
         </div>
         <nav className="nav">
           <button
@@ -150,8 +192,8 @@ const Shopdash = () => {
         </nav>
       </header>
       {activeTab === 'overview' && <Overview Data = {shopData} />}
-      {activeTab === 'update' && <Update Data = {shopData}/>}
-        
+      {activeTab === 'update' && <Update Data = {shopData} logo = {logo} shopImages = {shopImages} />}
+      {activeTab === 'stock' && <Stock Data = {shopData} />}
     </div>
   );
 };
