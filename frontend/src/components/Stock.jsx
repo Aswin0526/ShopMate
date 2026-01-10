@@ -15,8 +15,13 @@ const Stock = ({ Data }) => {
   const [itemsPerPage] = useState(10);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [images, setImages] = useState({ image1: null, image2: null, image3: null, image4: null, image5: null });
+  const [previewImage, setPreviewImage] = useState(null);
   const [imagePreviews, setImagePreviews] = useState({ image1: null, image2: null, image3: null, image4: null, image5: null });
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(()=>{
+    console.log("images",images)
+  },[images])
 
   const normalizedShopName = Data.shop_name
     .trim()
@@ -58,7 +63,6 @@ const Stock = ({ Data }) => {
     fetchProducts();
   }, [tableName, Data.type]);
 
-  // Filter products by search term
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return products;
     return products.filter(product =>
@@ -85,7 +89,8 @@ const Stock = ({ Data }) => {
     }));
   };
 
-  // Handle image file selection
+
+
   const handleImageChange = (e, imageKey) => {
     const file = e.target.files[0];
     if (file) {
@@ -270,7 +275,7 @@ const Stock = ({ Data }) => {
   // Get display columns (exclude internal fields)
   const displayColumns = useMemo(() => {
     return columns.filter(col => {
-      const excluded = ['id', 'cosmetics_id', 'created_at', 'updated_at', 'image1', 'image2', 'image3', 'image4', 'image5'];
+      const excluded = ['id', 'created_at', 'updated_at', 'image1', 'image2', 'image3', 'image4', 'image5'];
       return !excluded.includes(col.column_name.toLowerCase());
     });
   }, [columns]);
@@ -308,7 +313,7 @@ const Stock = ({ Data }) => {
 
       {/* Header */}
       <div className="stock-header">
-        <h2>📦 Stock Management</h2>
+        <h2>Stock Management</h2>
         <button className="add-btn" onClick={openAddModal}>
           + Add Product
         </button>
@@ -343,61 +348,121 @@ const Stock = ({ Data }) => {
                   {col.column_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </th>
               ))}
+              <th>Images</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
-            {paginatedProducts.length > 0 ? (
-              paginatedProducts.map((product, index) => (
-                <tr key={product.id || product.cosmetics_id || index}>
-                  {displayColumns.map(col => {
-                    const value = product[col.column_name];
-                    const columnType = col.data_type;
-                    
-                    // Format based on data type
-                    let displayValue = value;
-                    if (value === null || value === undefined) {
-                      displayValue = '-';
-                    } else if (columnType === 'numeric' || columnType === 'decimal') {
-                      displayValue = `₹${value}`;
-                    } else if (columnType === 'boolean' || columnType === 'bool') {
-                      displayValue = value ? '✅' : '❌';
-                    } else if (columnType === 'date') {
-                      displayValue = new Date(value).toLocaleDateString();
-                    }
-                    
-                    return (
-                      <td key={col.column_name}>
-                        {displayValue}
-                      </td>
-                    );
-                  })}
-                  <td className="actions-cell">
-                    <button 
-                      className="edit-btn"
-                      onClick={() => openEditModal(product)}
-                      title="Edit"
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      className="delete-btn"
-                      onClick={() => handleDelete(product)}
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={displayColumns.length + 1} className="no-data">
-                  {searchTerm ? 'No products match your search' : 'No products found'}
-                </td>
-              </tr>
-            )}
-          </tbody>
+         <tbody>
+  {paginatedProducts.length > 0 ? (
+    paginatedProducts.map((product, index) => (
+      <tr key={product.id || product.cosmetics_id || index}>
+        {displayColumns.map(col => {
+          const value = product[col.column_name];
+          const columnType =  col.data_type;
+          // console.log(value);
+          let displayValue = value;
+          if (value === null || value === undefined) {
+            displayValue = '-';
+          } else if (columnType === 'numeric' || columnType === 'decimal') {
+            displayValue = `₹${value}`;
+          } else if (columnType === 'boolean' || columnType === 'bool') {
+            displayValue = value ? '✅' : '❌';
+          } else if (columnType === 'date') {
+            displayValue = new Date(value).toLocaleDateString();
+          }
+          
+          return (
+            <td key={col.column_name}>
+              {displayValue}
+            </td>
+          );
+        })}
+
+        {/* --- IMPROVED IMAGE CELL --- */}
+ <td className="images-cell">
+  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+    {['image1', 'image2', 'image3', 'image4', 'image5'].map((key) => {
+      let rawData = product[key];
+
+      // 1. Skip if empty
+      if (!rawData) return null;
+
+      const getFinalSrc = (data) => {
+        try {
+          let base64String = '';
+
+          // 2. Handle Postgres 'bytea' format (buffer/Uint8Array)
+          if (data && data.type === 'Buffer' && Array.isArray(data.data)) {
+            // Convert Buffer array to Base64 string
+            const uint8 = new Uint8Array(data.data);
+            base64String = btoa(String.fromCharCode.apply(null, uint8));
+          } 
+          // 3. Handle data if it's already a string but potentially double-encoded
+          else if (typeof data === 'string') {
+            let clean = data.trim().replace(/['"]+/g, '');
+            
+            // Unwrapping the "Double Base64" you mentioned earlier
+            if (clean.includes('base64,ZGF0Y')) {
+              const encodedPart = clean.split('base64,')[1];
+              return getFinalSrc(atob(encodedPart)); 
+            }
+            
+            if (clean.startsWith('data:image')) return clean;
+            base64String = clean;
+          } else {
+            return null;
+          }
+
+          // 4. Final check: Does it have the prefix?
+          return base64String.startsWith('data:image') 
+            ? base64String 
+            : `data:image/jpeg;base64,${base64String}`;
+        } catch (e) {
+          console.error("Error processing bytea image:", e);
+          return null;
+        }
+      };
+
+      const finalSrc = getFinalSrc(rawData);
+
+     // ... inside your getFinalSrc logic ...
+return finalSrc ? (
+  <img
+    key={`${product.id || index}-${key}`}
+    src={finalSrc}
+    alt="Product"
+    onClick={() => setPreviewImage(finalSrc)} // <--- Add this
+    style={{
+      width: '50px',
+      height: '50px',
+      objectFit: 'cover',
+      borderRadius: '4px',
+      border: '1px solid #ccc',
+      backgroundColor: '#eee',
+      cursor: 'pointer' // <--- Add this for UX
+    }}
+    // ... rest of your code ...
+  />
+) : null;
+    })}
+  </div>
+</td>
+        {/* --- END IMAGE CELL --- */}
+
+        <td className="actions-cell">
+          <button className="edit-btn" onClick={() => openEditModal(product)} title="Edit">✏️</button>
+          <button className="delete-btn" onClick={() => handleDelete(product)} title="Delete">🗑️</button>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan={displayColumns.length + 2} className="no-data">
+        {searchTerm ? 'No products match your search' : 'No products found'}
+      </td>
+    </tr>
+  )}
+</tbody>
         </table>
       </div>
 
@@ -523,7 +588,7 @@ const Stock = ({ Data }) => {
                               style={{ display: 'none' }}
                             />
                             <label htmlFor={imageKey} className="upload-btn">
-                              📷 Choose Image
+                              Choose Image
                             </label>
                             <p className="upload-hint">Max 5MB</p>
                           </div>
@@ -546,6 +611,54 @@ const Stock = ({ Data }) => {
           </div>
         </div>
       )}
+      {/* Image Preview Modal */}
+{previewImage && (
+  <div 
+    className="image-preview-overlay" 
+    onClick={() => setPreviewImage(null)}
+    style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2000,
+      cursor: 'zoom-out'
+    }}
+  >
+    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+      <button 
+        onClick={() => setPreviewImage(null)}
+        style={{
+          position: 'absolute',
+          top: '-40px',
+          right: '-40px',
+          background: 'transparent',
+          border: 'none',
+          color: 'white',
+          fontSize: '30px',
+          cursor: 'pointer'
+        }}
+      >
+        ×
+      </button>
+      <img 
+        src={previewImage} 
+        alt="Preview" 
+        style={{ 
+          maxWidth: '100%', 
+          maxHeight: '80vh', 
+          borderRadius: '8px',
+          boxShadow: '0 5px 15px rgba(0,0,0,0.5)' 
+        }} 
+      />
+    </div>
+  </div>
+)}
     </div>
   );
 };

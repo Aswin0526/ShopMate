@@ -1,7 +1,7 @@
 /* Stock Management Component Styles */
 .stock-container {
   padding: 20px;
-  max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -156,6 +156,50 @@
 .no-image {
   color: #999;
   font-size: 12px;
+}
+
+/* Images Cell for thumbnails */
+
+/* Ensure the table cell can accommodate images */
+.images-cell {
+  min-width: 120px;
+  vertical-align: middle;
+}
+
+.image-thumbnails {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.table-image {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.table-image:hover {
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+.no-image-text {
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.image-preview-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.table-image:hover {
+  border-color: #007bff !important;
+  transform: scale(1.05);
+  transition: transform 0.2s;
 }
 
 /* Actions Cell */
@@ -453,7 +497,7 @@
   color: #333;
 }
 
-.image-uploads {
+.image-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 10px;
@@ -567,7 +611,7 @@
     padding: 10px;
   }
 
-  .image-uploads {
+  .image-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
