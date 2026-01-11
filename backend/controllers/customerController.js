@@ -283,9 +283,85 @@ const logoutCustomer = async (req, res) => {
   }
 };
 
+const getShopInLoc = async (req, res) => {
+  try {
+    const { HCountry, HState, HCity, type } = req.body;
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    if (HCountry && HCountry.trim() !== "") {
+      whereConditions.push(`s.shop_country = $${paramIndex}`);
+      queryParams.push(HCountry);
+      paramIndex++;
+    }
+
+    if (HState && HState.trim() !== "") {
+      whereConditions.push(`s.shop_state = $${paramIndex}`);
+      queryParams.push(HState);
+      paramIndex++;
+    }
+
+    if (HCity && HCity.trim() !== "") {
+      whereConditions.push(`s.shop_city = $${paramIndex}`);
+      queryParams.push(HCity);
+      paramIndex++;
+    }
+
+    if (type && type.trim() !== "" && type !== "All") {
+      whereConditions.push(`s.type = $${paramIndex}`);
+      queryParams.push(type);
+      paramIndex++;
+    }
+
+    console.log(whereConditions, queryParams, paramIndex);
+
+    if (whereConditions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "No filters provided",
+      });
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+    const result = await pool.query(
+      `
+      SELECT 
+        s.shop_id,
+        s.shop_name,
+        s.type,
+        s.shop_city,
+        s.shop_state,
+        s.shop_country,
+        s.shop_pincode,
+        encode(si.logo, 'base64') AS logo
+      FROM shops s
+      LEFT JOIN shop_images si ON s.shop_id = si.shop_id
+      WHERE ${whereClause}
+      `,
+      queryParams
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error("Get shops error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   registerCustomer,
   loginCustomer,
   getCustomerProfile,
   logoutCustomer,
+  getShopInLoc,
 };
