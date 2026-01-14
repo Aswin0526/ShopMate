@@ -39,41 +39,41 @@ const Overview = (data) => {
     }, []);
 
     useEffect(() => {
-        if (!shopData) return;
-        console.log("fetching avg ratings");
-        const shopId = shopData.shop_id || shopData.id;
-        if (!shopId) return;
+    if (!shopData) return;
+    console.log("fetching avg ratings");
+    const shopId = shopData.shop_id || shopData.id;
+    if (!shopId) return;
 
-        const fetchAvgRating = async () => {
-            try {
-                const token = localStorage.getItem('access_token');
-        const response = await fetch(
-                    "http://localhost:5000/api/owners/getAvgRatings",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                            shop_id: shopId,
-                        }),
-                    }
-                );
-
-                const data = await response.json();
-                console.log("Avg api response",data)
-                console.log(data.data)
-                if (data.success && data.data !== null) {
-                    setAvgRating(parseFloat(data.data) || 0);
-                    console.log("avg ratings",avgRating)
+    const fetchAvgRating = async () => {
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(
+                "http://localhost:5000/api/owners/getAvgRatings",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        shop_id: shopId,
+                    }),
                 }
-            } catch (error) {
-                console.error("Error fetching average rating:", error);
-            }
-        };
+            );
 
-        fetchAvgRating();
+            const data = await response.json();
+            console.log("Avg api response",data)
+            console.log(data.data)
+            if (data.success && data.data !== null) {
+                setAvgRating(parseFloat(data.data) || 0);
+                console.log("avg ratings",avgRating)
+            }
+        } catch (error) {
+            console.error("Error fetching average rating:", error);
+        }
+    };
+
+    fetchAvgRating();
     }, [shopData]);
 
     useEffect(() => {

@@ -1153,11 +1153,9 @@ const getProducts = async (req, res) => {
       `SELECT * FROM ${table_name} ORDER BY created_at DESC`
     );
 
-    // Convert BYTEA images to base64 for display
     const products = productsResult.rows.map((product) => {
       const productCopy = { ...product };
 
-      // Convert image columns from buffer to base64
       for (let i = 1; i <= 5; i++) {
         const imgKey = `image${i}`;
         if (productCopy[imgKey]) {

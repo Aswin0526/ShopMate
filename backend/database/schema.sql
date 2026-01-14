@@ -83,3 +83,13 @@ CREATE TABLE IF NOT EXISTS shop_images (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (shop_id) REFERENCES shops(shop_id) ON DELETE CASCADE
 );
+
+-- Wishlists Table (stores customer wishlist items)
+CREATE TABLE IF NOT EXISTS wishlists (
+    id SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL,
+    product_id VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
+    UNIQUE (customer_id, product_id)
+);

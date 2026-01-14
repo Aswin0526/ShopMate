@@ -292,20 +292,20 @@ const getShopInLoc = async (req, res) => {
     let paramIndex = 1;
 
     if (HCountry && HCountry.trim() !== "") {
-      whereConditions.push(`s.shop_country = $${paramIndex}`);
-      queryParams.push(HCountry);
+      whereConditions.push(`s.shop_country ILIKE $${paramIndex}`);
+      queryParams.push(`%${HCountry}%`);
       paramIndex++;
     }
 
     if (HState && HState.trim() !== "") {
-      whereConditions.push(`s.shop_state = $${paramIndex}`);
-      queryParams.push(HState);
+      whereConditions.push(`s.shop_state ILIKE $${paramIndex}`);
+      queryParams.push(`%${HState}%`);
       paramIndex++;
     }
 
     if (HCity && HCity.trim() !== "") {
-      whereConditions.push(`s.shop_city = $${paramIndex}`);
-      queryParams.push(HCity);
+      whereConditions.push(`s.shop_city ILIKE $${paramIndex}`);
+      queryParams.push(`%${HCity}%`);
       paramIndex++;
     }
 
@@ -325,7 +325,7 @@ const getShopInLoc = async (req, res) => {
       });
     }
 
-    const whereClause = whereConditions.join(" AND ");
+    const whereClause = whereConditions.join(" OR ");
 
     const result = await pool.query(
       `
@@ -358,10 +358,246 @@ const getShopInLoc = async (req, res) => {
   }
 };
 
+const getShopDetails = async (req, res) => {
+  try {
+    const { shop_id } = req.body;
+
+    if (!shop_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required",
+      });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT 
+        s.shop_id,
+        s.shop_name,
+        s.type,
+        s.shop_city,
+        s.shop_state,
+        s.shop_country,
+        s.shop_pincode,
+        s.shop_email,
+        s.shop_phone,
+        s.shop_website,
+        encode(si.logo, 'base64') AS logo
+      FROM shops s
+      LEFT JOIN shop_images si ON s.shop_id = si.shop_id
+      WHERE s.shop_id = $1
+      `,
+      [shop_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Shop not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Get shop details error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+const addWishList = async (req, res) => {
+  try {
+    console.log("inside addWishList");
+    const { cust_id, productId, shopId } = req.body;
+    console.log(cust_id, productId, shopId);
+    if (!cust_id || !productId || !shopId) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer ID and Product ID are required",
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO wishlist (cust_id, shop_id, product_id)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (cust_id, shop_id, product_id) DO NOTHING;
+      `,
+      [cust_id, shopId, productId]
+    );
+
+    if (result.rows.length > 0) {
+      res.status(200).json({
+        success: true,
+        message: "Product added to wishlist successfully",
+        data: { wishlist_id: result.rows[0].id },
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        message: "Product already in wishlist",
+      });
+    }
+  } catch (error) {
+    console.error("Add to wishlist error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const getWishList = async (req, res) => {
+  try {
+    console.log("inside getWishList");
+
+    const { cust_id } = req.body;
+
+    if (!cust_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer ID is required",
+      });
+    }
+
+    const wishlistResult = await pool.query(
+      `
+      SELECT wishlist_id, shop_id, product_id
+      FROM wishlist
+      WHERE cust_id = $1
+      `,
+      [cust_id]
+    );
+
+    if (wishlistResult.rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "Wishlist is empty",
+      });
+    }
+
+    const finalData = [];
+
+    for (const item of wishlistResult.rows) {
+      const { shop_id, product_id, wishlist_id } = item;
+
+      const shopResult = await pool.query(
+        `SELECT shop_name, type FROM shops WHERE shop_id = $1`,
+        [shop_id]
+      );
+      if (shopResult.rows.length === 0) continue;
+
+      const { shop_name, type } = shopResult.rows[0];
+
+      const tableName = `${type}_${shop_id}_${shop_name}`
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+
+      const productResult = await pool.query(
+        `SELECT id, product_name, image1, image2, image3, image4, image5, quantity
+     FROM ${tableName} WHERE id = $1`,
+        [product_id]
+      );
+      if (productResult.rows.length === 0) continue;
+
+      const toBase64Image = (buffer, mime = "image/png") => {
+        if (!buffer) return null;
+        return `data:${mime};base64,${buffer.toString("base64")}`;
+      };
+
+      const row = productResult.rows[0];
+
+      const imageType = "image/jpeg";
+
+      finalData.push({
+        wishlist_id,
+        shop_id,
+        shop_name,
+        type,
+        product_id,
+        product_name: row.product_name,
+        images: [
+          toBase64Image(row.image1, imageType),
+          toBase64Image(row.image2, imageType),
+          toBase64Image(row.image3, imageType),
+          toBase64Image(row.image4, imageType),
+          toBase64Image(row.image5, imageType),
+        ].filter(Boolean),
+        quantity: row.quantity,
+      });
+    }
+
+    // ✅ Send response AFTER the loop
+    res.status(200).json({
+      success: true,
+      count: finalData.length,
+      data: finalData,
+    });
+  } catch (error) {
+    console.error("Get wishlist error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const deleteWishlist = async (req, res) => {
+  const { product_id, shop_id, custId } = req.body;
+
+  if (!product_id || !shop_id || !custId) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM wishlist
+       WHERE product_id = $1
+       AND shop_id = $2
+       AND cust_id = $3
+       RETURNING *`,
+      [product_id, shop_id, custId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Wishlist item not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Wishlist item deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete wishlist error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 module.exports = {
   registerCustomer,
   loginCustomer,
   getCustomerProfile,
   logoutCustomer,
   getShopInLoc,
+  getShopDetails,
+  addWishList,
+  getWishList,
+  deleteWishlist,
 };

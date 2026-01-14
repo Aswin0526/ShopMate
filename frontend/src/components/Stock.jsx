@@ -80,7 +80,6 @@ const Stock = ({ Data }) => {
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  // Handle form input change
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
@@ -426,27 +425,27 @@ const Stock = ({ Data }) => {
       const finalSrc = getFinalSrc(rawData);
 
      // ... inside your getFinalSrc logic ...
-return finalSrc ? (
-  <img
-    key={`${product.id || index}-${key}`}
-    src={finalSrc}
-    alt="Product"
-    onClick={() => setPreviewImage(finalSrc)} // <--- Add this
-    style={{
-      width: '50px',
-      height: '50px',
-      objectFit: 'cover',
-      borderRadius: '4px',
-      border: '1px solid #ccc',
-      backgroundColor: '#eee',
-      cursor: 'pointer' // <--- Add this for UX
-    }}
-    // ... rest of your code ...
-  />
-) : null;
-    })}
-  </div>
-</td>
+      return finalSrc ? (
+        <img
+          key={`${product.id || index}-${key}`}
+          src={finalSrc}
+          alt="Product"
+          onClick={() => setPreviewImage(finalSrc)} // <--- Add this
+          style={{
+            width: '50px',
+            height: '50px',
+            objectFit: 'cover',
+            borderRadius: '4px',
+            border: '1px solid #ccc',
+            backgroundColor: '#eee',
+            cursor: 'pointer' // <--- Add this for UX
+          }}
+          // ... rest of your code ...
+        />
+      ) : null;
+          })}
+        </div>
+      </td>
         {/* --- END IMAGE CELL --- */}
 
         <td className="actions-cell">

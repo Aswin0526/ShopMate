@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import '../styles/Customerdash.css';
 import CHome from '../components/CHome';
+import Corder from '../components/COrder';
 
 function Customerdash() {
   const custData = JSON.parse(localStorage.getItem('user_data'));
@@ -31,6 +32,7 @@ function Customerdash() {
 
       <main>
         {activeTab === 'Home' && <CHome custData={custData} />}
+        {activeTab === 'Orders' && <Corder custData={custData} />}
       </main>
     </div>
   );

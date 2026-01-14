@@ -6,6 +6,10 @@ const {
   getCustomerProfile,
   logoutCustomer,
   getShopInLoc,
+  getShopDetails,
+  addWishList,
+  getWishList,
+  deleteWishlist,
 } = require("../controllers/customerController");
 const { verifyToken, isCustomer } = require("../middleware/auth");
 
@@ -14,9 +18,13 @@ router.post("/register", registerCustomer);
 router.post("/login", loginCustomer);
 
 router.post("/getShopInLoc", verifyToken, isCustomer, getShopInLoc);
+router.post("/getShopDetails", verifyToken, isCustomer, getShopDetails);
 
-// Protected routes
 router.get("/profile", verifyToken, isCustomer, getCustomerProfile);
 router.post("/logout", logoutCustomer);
+
+router.post("/addWishList", verifyToken, isCustomer, addWishList);
+router.post("/getWishList", verifyToken, isCustomer, getWishList);
+router.post("/deleteWishList", verifyToken, isCustomer, deleteWishlist);
 
 module.exports = router;

@@ -17,7 +17,7 @@ const {
   updateProduct,
   deleteProduct,
 } = require("../controllers/ownerController");
-const { verifyToken, isOwner } = require("../middleware/auth");
+const { verifyToken, isOwner, isCustomer } = require("../middleware/auth");
 
 // Public routes
 router.post("/register", registerOwner);
@@ -27,17 +27,18 @@ router.post("/complete-registration", completeRegistration);
 router.post("/get-logo", getLogo);
 router.post("/get-shop-images", getShopImages);
 router.post("/login", loginOwner);
-router.post("/getfeedbacks", verifyToken, isOwner, getFeedBack);
-router.post("/getAvgRatings", verifyToken, isOwner, getAvgRatings);
+router.post("/getfeedbacks", verifyToken, getFeedBack);
+router.post("/getAvgRatings", verifyToken, getAvgRatings);
 
 // Protected routes
 router.get("/profile", verifyToken, isOwner, getOwnerProfile);
 router.post("/logout", logoutOwner);
 
 // Product management routes
-router.post("/get-products", verifyToken, isOwner, getProducts);
+router.post("/get-products", verifyToken, getProducts);
 router.post("/add-product", verifyToken, isOwner, addProduct);
 router.post("/update-product", verifyToken, isOwner, updateProduct);
 router.post("/delete-product", verifyToken, isOwner, deleteProduct);
+
 
 module.exports = router;

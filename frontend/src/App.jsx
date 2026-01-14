@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Customerdash from './pages/Customerdash'
 import Shopdash from './pages/Shopdash'
+import ShopDetail from './pages/ShopDetail'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -27,6 +28,14 @@ function App() {
           element={
             <ProtectedRoute allowedUserTypes={['owner']}>
               <Shopdash />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path='/shop-detail' 
+          element={
+            <ProtectedRoute allowedUserTypes={['customer']}>
+              <ShopDetail />
             </ProtectedRoute>
           }
         />
