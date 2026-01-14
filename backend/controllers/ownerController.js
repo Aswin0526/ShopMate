@@ -1376,6 +1376,433 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+const getOrders = async (req, res) => {
+  const { shop_id } = req.body;
+
+  if (!shop_id) {
+    return res.status(400).json({ message: "Shop ID required" });
+  }
+
+  try {
+    const ordersResult = await pool.query(
+      `
+      SELECT
+        o.order_id,
+        o.cust_id,
+        o.shop_id,
+        o.pickup_date,
+        o.pickup_time,
+        o.note,
+        o.state,
+        o.created_at,
+
+        s.shop_name,
+        s.type,
+
+        c.customer_name,
+        c.customer_phone,
+        c.customer_email,
+
+        json_agg(
+          json_build_object(
+            'product_id', oi.product_id,
+            'quantity', oi.quantity
+          )
+        ) AS products
+
+      FROM orders o
+      JOIN shops s 
+        ON o.shop_id = s.shop_id
+      JOIN customers c 
+        ON o.cust_id = c.customer_id
+      JOIN order_items oi 
+        ON o.order_id = oi.order_id
+
+      WHERE o.shop_id = $1
+
+      GROUP BY
+        o.order_id,
+        o.cust_id,
+        o.shop_id,
+        o.pickup_date,
+        o.pickup_time,
+        o.note,
+        o.state,
+        o.created_at,
+        s.shop_name,
+        s.type,
+        c.customer_name,
+        c.customer_phone,
+        c.customer_email
+
+      ORDER BY o.created_at DESC
+      `,
+      [shop_id]
+    );
+
+    const orders = ordersResult.rows;
+
+    // Resolve product names from dynamic shop table
+    for (const order of orders) {
+      if (!order.products || order.products.length === 0) continue;
+
+      const normalizedShopName = order.shop_name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+
+      const tableName = `${order.type}_${order.shop_id}_${normalizedShopName}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "");
+
+      const productIds = order.products.map((p) => p.product_id);
+
+      try {
+        const productResult = await pool.query(
+          `
+          SELECT id, product_name
+          FROM ${tableName}
+          WHERE id = ANY($1)
+          `,
+          [productIds]
+        );
+
+        const productMap = {};
+        productResult.rows.forEach((p) => {
+          productMap[p.id] = p.product_name;
+        });
+
+        order.products = order.products.map((p) => ({
+          product_id: p.product_id,
+          quantity: p.quantity,
+          product_name: productMap[p.product_id] || "Unknown Product",
+        }));
+      } catch (err) {
+        console.error(`Dynamic table error (${tableName}):`, err.message);
+        order.products = order.products.map((p) => ({
+          ...p,
+          product_name: "Unknown Product",
+        }));
+      }
+    }
+
+    res.status(200).json(orders);
+  } catch (err) {
+    console.error("Fetch shop orders error:", err);
+    res.status(500).json({ message: "Failed to fetch shop orders" });
+  }
+};
+
+// const getOrders = async (req, res) => {
+//   const { shop_id } = req.body;
+
+//   if (!shop_id) {
+//     return res.status(400).json({ message: "Shop ID required" });
+//   }
+
+//   try {
+//     const ordersResult = await pool.query(
+//       `
+//       SELECT
+//         o.order_id,
+//         o.cust_id,
+//         o.shop_id,
+//         o.pickup_date,
+//         o.pickup_time,
+//         o.note,
+//         o.state,
+//         o.created_at,
+
+//         s.shop_name,
+//         s.type,
+
+//         json_agg(
+//           json_build_object(
+//             'product_id', oi.product_id,
+//             'quantity', oi.quantity
+//           )
+//         ) AS products
+
+//       FROM orders o
+//       JOIN shops s ON o.shop_id = s.shop_id
+//       JOIN order_items oi ON o.order_id = oi.order_id
+
+//       WHERE o.shop_id = $1
+
+//       GROUP BY
+//         o.order_id,
+//         o.cust_id,
+//         o.shop_id,
+//         o.pickup_date,
+//         o.pickup_time,
+//         o.note,
+//         o.state,
+//         o.created_at,
+//         s.shop_name,
+//         s.type
+
+//       ORDER BY o.created_at DESC
+//       `,
+//       [shop_id]
+//     );
+
+//     const orders = ordersResult.rows;
+
+//     for (const order of orders) {
+//       if (!order.products || order.products.length === 0) continue;
+
+//       const normalizedShopName = order.shop_name
+//         .trim()
+//         .toLowerCase()
+//         .replace(/\s+/g, "_")
+//         .replace(/[^a-z0-9_]/g, "");
+
+//       const tableName = `${order.type}_${order.shop_id}_${normalizedShopName}`
+//         .toLowerCase()
+//         .replace(/[^a-z0-9_]/g, "");
+
+//       const productIds = order.products.map((p) => p.product_id);
+
+//       try {
+//         const productResult = await pool.query(
+//           `
+//           SELECT id, product_name
+//           FROM ${tableName}
+//           WHERE id = ANY($1)
+//           `,
+//           [productIds]
+//         );
+
+//         const productMap = {};
+//         productResult.rows.forEach((p) => {
+//           productMap[p.id] = p.product_name;
+//         });
+
+//         order.products = order.products.map((p) => ({
+//           product_id: p.product_id,
+//           quantity: p.quantity,
+//           product_name: productMap[p.product_id] || "Unknown Product",
+//         }));
+//       } catch (err) {
+//         console.error(`Dynamic table error (${tableName}):`, err.message);
+//         order.products = order.products.map((p) => ({
+//           ...p,
+//           product_name: "Unknown Product",
+//         }));
+//       }
+//     }
+
+//     res.status(200).json(orders);
+//   } catch (err) {
+//     console.error("Fetch shop orders error:", err);
+//     res.status(500).json({ message: "Failed to fetch shop orders" });
+//   }
+// };
+
+const approveOrder = async (req, res) => {
+  const { order_id, note } = req.body;
+
+  if (!order_id) {
+    return res.status(400).json({ message: "Order ID required" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE orders
+      SET
+        state = 'approved',
+        note = COALESCE($2, note)
+      WHERE order_id = $1
+      RETURNING *
+      `,
+      [order_id, note]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json({
+      message: "Order approved successfully",
+      order: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Approve order error:", err);
+    res.status(500).json({ message: "Failed to approve order" });
+  }
+};
+
+const markDone = async (req, res) => {
+  const { order_id, note } = req.body;
+
+  if (!order_id) {
+    return res.status(400).json({ message: "Order ID required" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE orders
+      SET
+        state = 'done',
+        note = COALESCE($2, note)
+      WHERE order_id = $1
+      RETURNING *
+      `,
+      [order_id, note]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json({
+      message: "Order marked as done",
+      order: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Mark done error:", err);
+    res.status(500).json({ message: "Failed to mark order as done" });
+  }
+};
+
+// const markOrderDoneAndDelete = async (req, res) => {
+//   const { order_id, note } = req.body;
+
+//   if (!order_id) {
+//     return res.status(400).json({ message: "Order ID required" });
+//   }
+
+//   try {
+//     // STEP 1: Update state to done
+//     const updateResult = await pool.query(
+//       `
+//       UPDATE orders
+//       SET
+//         state = 'done',
+//         note = COALESCE($2, note)
+//       WHERE order_id = $1
+//       RETURNING *
+//       `,
+//       [order_id, note]
+//     );
+
+//     if (updateResult.rowCount === 0) {
+//       return res.status(404).json({ message: "Order not found" });
+//     }
+
+//     const updatedOrder = updateResult.rows[0];
+
+//     await pool.query(`DELETE FROM order_items WHERE order_id = $1`, [order_id]);
+
+//     await pool.query(`DELETE FROM orders WHERE order_id = $1`, [order_id]);
+
+//     res.status(200).json({
+//       message: "Order completed and deleted",
+//       order: updatedOrder,
+//     });
+//   } catch (err) {
+//     console.error("Done & delete error:", err);
+//     res.status(500).json({ message: "Failed to complete order" });
+//   }
+// };
+
+const markOrderDoneAndDelete = async (req, res) => {
+  const { order_id, note } = req.body;
+
+  if (!order_id) {
+    return res.status(400).json({ message: "Order ID required" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      `
+      SELECT o.shop_id, s.shop_name, s.type
+      FROM orders o
+      JOIN shops s ON o.shop_id = s.shop_id
+      WHERE o.order_id = $1
+      `,
+      [order_id]
+    );
+
+    if (orderResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const { shop_id, shop_name, type } = orderResult.rows[0];
+
+    const updatedOrderResult = await client.query(
+      `
+      UPDATE orders
+      SET
+        state = 'done',
+        note = COALESCE($2, note)
+      WHERE order_id = $1
+      RETURNING *
+      `,
+      [order_id, note]
+    );
+
+    const updatedOrder = updatedOrderResult.rows[0];
+
+    const itemsResult = await client.query(
+      `
+      SELECT product_id, quantity
+      FROM order_items
+      WHERE order_id = $1
+      `,
+      [order_id]
+    );
+
+    const normalizedShopName = shop_name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+
+    const tableName = `${type}_${shop_id}_${normalizedShopName}`
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, "");
+
+    for (const item of itemsResult.rows) {
+      await client.query(
+        `
+        UPDATE ${tableName}
+        SET quantity = quantity - $1
+        WHERE id = $2 AND quantity >= $1
+        `,
+        [item.quantity, item.product_id]
+      );
+    }
+
+    await client.query(`DELETE FROM order_items WHERE order_id = $1`, [
+      order_id,
+    ]);
+
+    await client.query(`DELETE FROM orders WHERE order_id = $1`, [order_id]);
+
+    await client.query("COMMIT");
+
+    res.status(200).json({
+      message: "Order completed, inventory updated, and order deleted",
+      order: updatedOrder,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Done & delete error:", err);
+    res.status(500).json({ message: "Failed to complete order" });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   registerOwner,
   registerOwnerBasic,
@@ -1392,4 +1819,8 @@ module.exports = {
   addProduct,
   updateProduct,
   deleteProduct,
+  getOrders,
+  approveOrder,
+  markDone,
+  markOrderDoneAndDelete,
 };

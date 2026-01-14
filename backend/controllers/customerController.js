@@ -590,6 +590,163 @@ const deleteWishlist = async (req, res) => {
   }
 };
 
+const order = async (req, res) => {
+  const { cust_id, shop_id, pickup_date, pickup_time, products } = req.body;
+  if (!products || products.length === 0) {
+    return res.status(400).json({ message: "No products in order" });
+  }
+  try {
+    await pool.query("BEGIN");
+
+    const orderResult = await pool.query(
+      `INSERT INTO orders (cust_id, shop_id, pickup_date, pickup_time)
+       VALUES ($1, $2, $3, $4)
+       RETURNING order_id`,
+      [cust_id, shop_id, pickup_date, pickup_time]
+    );
+
+    const order_id = orderResult.rows[0].order_id;
+
+    const insertItemQuery = `INSERT INTO order_items (order_id, product_id, quantity)
+       VALUES ($1, $2, $3)`;
+
+    for (const item of products) {
+      await pool.query(insertItemQuery, [
+        order_id,
+        item.product_id,
+        item.quantity,
+      ]);
+    }
+
+    await pool.query("COMMIT");
+
+    res.status(201).json({
+      message: "Order placed successfully",
+      order_id,
+    });
+  } catch (err) {
+    await pool.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ message: "Order creation failed" });
+  }
+};
+
+const getOrders = async (req, res) => {
+  const { cust_id } = req.body;
+
+  if (!cust_id) {
+    return res.status(400).json({ message: "Customer ID required" });
+  }
+
+  try {
+    /**
+     * STEP 1: Fetch orders + order_items + shop info
+     */
+    const ordersResult = await pool.query(
+      `
+      SELECT
+        o.order_id,
+        o.shop_id,
+        o.pickup_date,
+        o.pickup_time,
+        o.note,
+        o.state,
+        o.created_at,
+
+        s.shop_name,
+        s.type,
+
+        json_agg(
+          json_build_object(
+            'product_id', oi.product_id,
+            'quantity', oi.quantity
+          )
+        ) AS products
+
+      FROM orders o
+      JOIN shops s ON o.shop_id = s.shop_id
+      JOIN order_items oi ON o.order_id = oi.order_id
+
+      WHERE o.cust_id = $1
+
+      GROUP BY
+        o.order_id,
+        o.shop_id,
+        o.pickup_date,
+        o.pickup_time,
+        o.note,
+        o.state,
+        o.created_at,
+        s.shop_name,
+        s.type
+
+      ORDER BY o.created_at DESC
+      `,
+      [cust_id]
+    );
+
+    const orders = ordersResult.rows;
+
+    /**
+     * STEP 2: Fetch product names from dynamic shop tables
+     */
+    for (const order of orders) {
+      if (!order.products || order.products.length === 0) continue;
+
+      const normalizedShopName = order.shop_name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+
+      const tableName = `${order.type}_${order.shop_id}_${normalizedShopName}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "");
+
+      const productIds = order.products.map((p) => p.product_id);
+
+      try {
+        const productResult = await pool.query(
+          `
+          SELECT id, product_name
+          FROM ${tableName}
+          WHERE id = ANY($1)
+          `,
+          [productIds]
+        );
+
+        const productMap = {};
+        productResult.rows.forEach((p) => {
+          productMap[p.id] = p.product_name;
+        });
+
+        /**
+         * FIX APPLIED HERE:
+         * product_id → match against id
+         */
+        order.products = order.products.map((p) => ({
+          product_id: p.product_id,
+          quantity: p.quantity,
+          product_name: productMap[p.product_id] || "Unknown Product",
+        }));
+      } catch (err) {
+        console.error(`Product table error (${tableName}):`, err.message);
+
+        order.products = order.products.map((p) => ({
+          product_id: p.product_id,
+          quantity: p.quantity,
+          product_name: "Unknown Product",
+        }));
+      }
+    }
+
+    res.status(200).json(orders);
+  } catch (err) {
+    console.error("Fetch orders error:", err);
+    res.status(500).json({ message: "Failed to fetch orders" });
+  }
+};
+
 module.exports = {
   registerCustomer,
   loginCustomer,
@@ -600,4 +757,6 @@ module.exports = {
   addWishList,
   getWishList,
   deleteWishlist,
+  order,
+  getOrders,
 };

@@ -10,6 +10,8 @@ const {
   addWishList,
   getWishList,
   deleteWishlist,
+  order,
+  getOrders,
 } = require("../controllers/customerController");
 const { verifyToken, isCustomer } = require("../middleware/auth");
 
@@ -26,5 +28,7 @@ router.post("/logout", logoutCustomer);
 router.post("/addWishList", verifyToken, isCustomer, addWishList);
 router.post("/getWishList", verifyToken, isCustomer, getWishList);
 router.post("/deleteWishList", verifyToken, isCustomer, deleteWishlist);
+router.post("/order", verifyToken, isCustomer, order);
+router.post("/getOrders", verifyToken, isCustomer, getOrders);
 
 module.exports = router;

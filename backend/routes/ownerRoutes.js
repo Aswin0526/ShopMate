@@ -16,6 +16,10 @@ const {
   addProduct,
   updateProduct,
   deleteProduct,
+  getOrders,
+  approveOrder,
+  markDone,
+  markOrderDoneAndDelete,
 } = require("../controllers/ownerController");
 const { verifyToken, isOwner, isCustomer } = require("../middleware/auth");
 
@@ -40,5 +44,9 @@ router.post("/add-product", verifyToken, isOwner, addProduct);
 router.post("/update-product", verifyToken, isOwner, updateProduct);
 router.post("/delete-product", verifyToken, isOwner, deleteProduct);
 
+//order management routes
+router.post("/getOrders", verifyToken, isOwner, getOrders);
+router.post("/approve", verifyToken, isOwner, approveOrder);
+router.post("/markDone", verifyToken, isOwner, markOrderDoneAndDelete);
 
 module.exports = router;

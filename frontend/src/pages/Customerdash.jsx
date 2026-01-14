@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import '../styles/Customerdash.css';
 import CHome from '../components/CHome';
 import Corder from '../components/COrder';
+import Custorders from '../components/Custorders';
 
 function Customerdash() {
   const custData = JSON.parse(localStorage.getItem('user_data'));
@@ -18,7 +19,7 @@ function Customerdash() {
         </div>
 
         <nav className="nav">
-          {['Home', 'Orders', 'Update', 'Chat'].map(tab => (
+          {['Home', 'WishList', 'Orders', 'Update', 'Chat'].map(tab => (
             <button
               key={tab}
               className={activeTab === tab ? 'nav-link active' : 'nav-link'}
@@ -28,11 +29,12 @@ function Customerdash() {
             </button>
           ))}
         </nav>
-      </header>
+      </header> 
 
       <main>
         {activeTab === 'Home' && <CHome custData={custData} />}
-        {activeTab === 'Orders' && <Corder custData={custData} />}
+        {activeTab === 'WishList' && <Corder custData={custData} />}
+        {activeTab === 'Orders' && <Custorders custData={custData} />}
       </main>
     </div>
   );

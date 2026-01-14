@@ -344,23 +344,20 @@ function ShopDetail() {
     );
   }
 
-  // Helper function to process image data
   const processImageSrc = (data) => {
     if (!data) return null;
     
     try {
       let base64String = '';
 
-      // Handle Postgres 'bytea' format (buffer/Uint8Array)
       if (data && data.type === 'Buffer' && Array.isArray(data.data)) {
         const uint8 = new Uint8Array(data.data);
         base64String = btoa(String.fromCharCode.apply(null, uint8));
       } 
-      // Handle data if it's already a string
+
       else if (typeof data === 'string') {
         let clean = data.trim().replace(/['"]+/g, '');
         
-        // Unwrap double base64 if present
         if (clean.includes('base64,ZGF0Y')) {
           const encodedPart = clean.split('base64,')[1];
           return processImageSrc(atob(encodedPart));
@@ -387,24 +384,15 @@ function ShopDetail() {
         ← Back
       </button>
 
-      <div className="shop-header">
-        <div className="shop-logo">
-          {shop.logo ? (
-            <img
-              src={`data:image/png;base64,${shop.logo}`}
-              alt={`${shop.shop_name} Logo`}
-            />
-          ) : (
-            <div className="logo-fallback">
-              {shop.shop_name?.charAt(0) || 'S'}
-            </div>
-          )}
-        </div>
+      {/* Store Name Section */}
+      <div className="store-name-section">
+        <h1 className="store-name">{shop.shop_name}</h1>
+        <span className="shop-type">{shop.type}</span>
+      </div>
 
-        <div className="shop-info">
-          <h1 className="shop-name">{shop.shop_name}</h1>
-          <span className="shop-type">{shop.type}</span>
-
+      {/* Details and Photos Row */}
+      <div className="details-photos-row">
+        <div className="details-section">
           <div className="info-grid">
             <div className="info-item">
               <span className="info-label">📍 Location:</span>
@@ -423,19 +411,19 @@ function ShopDetail() {
               {shop.shop_phone}
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="section">
-        <h2 className="section-title">About This Shop</h2>
-        <p className="about-shop">
-          {shop.shop_name} is a {shop.type} shop located in {shop.shop_city}, {shop.shop_state}.
-          {shop.shop_website && (
-            <span> Visit their website at <a href={shop.shop_website} target="_blank" rel="noopener noreferrer">{shop.shop_website}</a>.</span>
-          )}
-        </p>
-        
-        <div className="shop-images-section">
+          <div className="description-section">
+            <h3>About This Shop</h3>
+            <p className="about-shop">
+              {shop.shop_name} is a {shop.type} shop located in {shop.shop_city}, {shop.shop_state}.
+              {shop.shop_website && (
+                <span> Visit their website at <a href={shop.shop_website} target="_blank" rel="noopener noreferrer">{shop.shop_website}</a>.</span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="photos-section">
           <h3>Shop Images</h3>
           <div className="images-grid">
             {shopImages && shopImages.pic1 && <img src={shopImages.pic1} alt="Shop 1" />}
@@ -447,63 +435,62 @@ function ShopDetail() {
         </div>
       </div>
 
-      <div className="content-grid">
-        <div className="left-column">
-          {/* Ratings Section */}
-          <section className="section ratings-section">
-            <h2 className="section-title">Ratings & Reviews</h2>
-            <div className="ratings-container">
-              <div className="rating-overview">
-                <div className="rating-big">{avgRating || 0}</div>
-                {renderStars(avgRating || 0)}
-                <p className="rating-total">{feedbacks.length} reviews</p>
-              </div>
-              <div className="rating-breakdown">
-                {[5, 4, 3, 2, 1].map((stars) => {
-                  const count = feedbacks.filter(f => Math.floor(f.ratings || 0) === stars).length;
-                  const percentage = feedbacks.length > 0 ? Math.round((count / feedbacks.length) * 100) : 0;
-                  return (
-                    <div key={stars} className="rating-row">
-                      <span className="rating-stars-text">{stars} ⭐</span>
-                      <div className="rating-bar">
-                        <div className="rating-fill" style={{ width: `${percentage}%` }}></div>
-                      </div>
-                      <span className="rating-count">{count}</span>
+      {/* Ratings and Feedback Row */}
+      <div className="ratings-feedback-row">
+        {/* Ratings Section - 50% */}
+        <section className="section ratings-section">
+          <h2 className="section-title">Ratings & Reviews</h2>
+          <div className="ratings-container">
+            <div className="rating-overview">
+              <div className="rating-big">{avgRating || 0}</div>
+              {renderStars(avgRating || 0)}
+              <p className="rating-total">{feedbacks.length} reviews</p>
+            </div>
+            <div className="rating-breakdown">
+              {[5, 4, 3, 2, 1].map((stars) => {
+                const count = feedbacks.filter(f => Math.floor(f.ratings || 0) === stars).length;
+                const percentage = feedbacks.length > 0 ? Math.round((count / feedbacks.length) * 100) : 0;
+                return (
+                  <div key={stars} className="rating-row">
+                    <span className="rating-stars-text">{stars} ⭐</span>
+                    <div className="rating-bar">
+                      <div className="rating-fill" style={{ width: `${percentage}%` }}></div>
                     </div>
-                  );
-                })}
-              </div>
+                    <span className="rating-count">{count}</span>
+                  </div>
+                );
+              })}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Feedback Section */}
-          <section className="section feedback-section">
-            <h2 className="section-title">Recent Feedback</h2>
-            <div className="feedback-container">
-              <div className="feedback-wrapper">
-                {feedbacks.length === 0 ? (
-                  <p className="no-feedback">No feedbacks yet</p>
-                ) : (
-                  <>
-                    {[...feedbacks, ...feedbacks, ...feedbacks].map((feedback, index) => (
-                      <div key={index} className="feedback-card">
-                        <div className="feedback-header">
-                          <span className="feedback-date">
-                            {feedback.created_at ? new Date(feedback.created_at).toLocaleDateString() : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="feedback-stars">
-                          {'⭐'.repeat(parseInt(feedback.ratings) || 0)}
-                        </div>
-                        <p className="feedback-comment">{feedback.feedback || 'No comment'}</p>
+        {/* Feedback Section - 50% */}
+        <section className="section feedback-section">
+          <h2 className="section-title">Recent Feedback</h2>
+          <div className="feedback-container">
+            <div className="feedback-wrapper">
+              {feedbacks.length === 0 ? (
+                <p className="no-feedback">No feedbacks yet</p>
+              ) : (
+                <>
+                  {[...feedbacks, ...feedbacks, ...feedbacks].map((feedback, index) => (
+                    <div key={index} className="feedback-card">
+                      <div className="feedback-header">
+                        <span className="feedback-date">
+                          {feedback.created_at ? new Date(feedback.created_at).toLocaleDateString() : 'N/A'}
+                        </span>
                       </div>
-                    ))}
-                  </>
-                )}
-              </div>
+                      <div className="feedback-stars">
+                        {'⭐'.repeat(parseInt(feedback.ratings) || 0)}
+                      </div>
+                      <p className="feedback-comment">{feedback.feedback || 'No comment'}</p>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
   {/* paste here */}
   
