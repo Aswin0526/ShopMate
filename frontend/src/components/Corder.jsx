@@ -333,7 +333,7 @@ function Corder({ custData }) {
 
   useEffect(() => {
     if (!custId) return;
-
+    
     const getWishlist = async () => {
       setLoading(true);
       try {
@@ -404,36 +404,75 @@ function Corder({ custData }) {
     setModalOpen(true);
   };
 
-  const handleConfirmOrder = (pickupDate, pickupTime) => {
-    if (!selectedShop) return;
+  // const handleConfirmOrder = (pickupDate, pickupTime) => {
+  //   if (!selectedShop) return;
 
-    const orderData = {
-      shop: {
-        shop_id: selectedShop.shop_id,
-        shop_name: selectedShop.shop_name,
-        type: selectedShop.type,
-      },
-      products: selectedShop.products.map((product) => ({
-        wishlist_id: product.wishlist_id,
-        product_id: product.product_id,
-        product_name: product.product_name || `Product ${product.product_id}`,
-        product_type: product.type,
-        quantity: quantities[product.wishlist_id] || 1,
-        max_quantity: product.quantity,
-      })),
-      pickup: {
-        date: pickupDate,
-        time: pickupTime,
-      },
-      customer_id: custId,
-      ordered_at: new Date().toISOString(),
-    };
+  //   const orderData = {
+  //     shop: {
+  //       shop_id: selectedShop.shop_id,
+  //       shop_name: selectedShop.shop_name,
+  //       type: selectedShop.type,
+  //     },
+  //     products: selectedShop.products.map((product) => ({
+  //       wishlist_id: product.wishlist_id,
+  //       product_id: product.product_id,
+  //       product_name: product.product_name || `Product ${product.product_id}`,
+  //       product_type: product.type,
+  //       quantity: quantities[product.wishlist_id] || 1,
+  //       max_quantity: product.quantity,
+  //     })),
+  //     pickup: {
+  //       date: pickupDate,
+  //       time: pickupTime,
+  //     },
+  //     customer_id: custId,
+  //     ordered_at: new Date().toISOString(),
+  //   };
 
-    console.log('Order Placed:', orderData);
-    alert(`Order placed successfully for ${selectedShop.shop_name}!\nPickup: ${pickupDate} at ${pickupTime}`);
+  //   console.log('Order Placed:', orderData);
+  //   alert(`Order placed successfully for ${selectedShop.shop_name}!\nPickup: ${pickupDate} at ${pickupTime}`);
+  //   setModalOpen(false);
+  //   setSelectedShop(null);
+  // };
+
+  const handleConfirmOrder = async (pickupDate, pickupTime) => {
+  if (!selectedShop) return;
+
+  const orderData = {
+    cust_id: custId,
+    shop_id: selectedShop.shop_id,
+    pickup_date: pickupDate,
+    pickup_time: pickupTime,
+    products: selectedShop.products.map((product) => ({
+      product_id: product.product_id,
+      quantity: quantities[product.wishlist_id] || 1
+    }))
+  };
+
+  console.log(token)
+  try {
+    const res = await fetch("http://localhost:5000/api/customers/order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(orderData)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.message);
+
+    alert(`Order placed successfully!\nOrder ID: ${data.order_id}`);
     setModalOpen(false);
     setSelectedShop(null);
-  };
+
+  } catch (err) {
+    console.error("Order failed:", err);
+    alert("Failed to place order");
+  }
+};
 
   console.log('wishlist:', wishList);
   console.log('groupedWishList:', groupedWishList);

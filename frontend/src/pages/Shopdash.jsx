@@ -3,6 +3,7 @@ import '../styles/Shopdash.css';
 import Overview from '../components/Overview';
 import Update from '../components/Update';
 import Stock from '../components/Stock';
+import Preorder from '../components/Preorder';
 
 const Shopdash = () => {
   const [shopData, setShopData] = useState(null);
@@ -187,13 +188,14 @@ const Shopdash = () => {
             className={activeTab === 'preorder' ? 'nav-link active' : 'nav-link'}
             onClick={() => setActiveTab('preorder')}
           >
-            Preorder Notification
+            Preorder
           </button>
         </nav>
       </header>
       {activeTab === 'overview' && <Overview Data = {shopData} />}
       {activeTab === 'update' && <Update Data = {shopData} logo = {logo} shopImages = {shopImages} />}
       {activeTab === 'stock' && <Stock Data = {shopData} />}
+      {activeTab === 'preorder' && <Preorder Data = {shopData} />}
     </div>
   );
 };
