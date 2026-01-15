@@ -12,6 +12,7 @@ const {
   deleteWishlist,
   order,
   getOrders,
+  handleFeedbackSubmit,
 } = require("../controllers/customerController");
 const { verifyToken, isCustomer } = require("../middleware/auth");
 
@@ -30,5 +31,7 @@ router.post("/getWishList", verifyToken, isCustomer, getWishList);
 router.post("/deleteWishList", verifyToken, isCustomer, deleteWishlist);
 router.post("/order", verifyToken, isCustomer, order);
 router.post("/getOrders", verifyToken, isCustomer, getOrders);
+
+router.post("/addfeedback", verifyToken, isCustomer, handleFeedbackSubmit);
 
 module.exports = router;

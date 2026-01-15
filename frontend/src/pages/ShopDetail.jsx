@@ -23,6 +23,52 @@ function ShopDetail() {
 
   const [wishlist, setWishlist] = useState(new Set());
 
+  const [userRating, setUserRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [userFeedback, setUserFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Handle star click with console log
+  const handleStarClick = (rating) => {
+    setUserRating(rating);
+    console.log('Star clicked - Rating:', rating);
+  };
+
+  const handleFeedbackSubmit = async () => {
+    console.log('Feedback submitted:', {
+      rating: userRating,
+      feedback: userFeedback || 'No comment provided'
+    });
+    try {
+      console.log("inside feedback");
+      const response = await fetch(
+        "http://localhost:5000/api/customers/addfeedback",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            customer_id: custId,
+            shopId: shopId,
+            rating: userRating,
+            feedback: userFeedback
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!data.success) {
+        setError(data.message || "Failed to provide feedback");
+      }
+    } catch (err) {
+      console.error("error:", err);
+      setError("Error");
+    }
+    setUserRating(0);
+    setUserFeedback('');
+  };
+
   const handleAddToWishlist = async (product) => {
     const productId = product.id;
 
@@ -492,8 +538,60 @@ function ShopDetail() {
           </div>
         </section>
       </div>
-  {/* paste here */}
-  
+
+      {/* Add Rating and Feedback Section */}
+      <section className="section add-feedback-section">
+        <h2 className="section-title">Add Your Rating & Feedback</h2>
+        <div className="add-feedback-form">
+          <div className="rating-input-container">
+            <label className="rating-label">Your Rating:</label>
+            <div className="interactive-stars">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span
+                  key={star}
+                  className={`star ${star <= (hoverRating || userRating) ? 'filled' : ''}`}
+                  onClick={() => handleStarClick(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  style={{
+                    cursor: 'pointer',
+                    fontSize: '32px',
+                    color: star <= (hoverRating || userRating) ? '#FFC107' : '#E0E0E0',
+                    transition: 'color 0.2s ease',
+                    marginRight: '4px'
+                  }}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+            <span className="rating-text">
+              {userRating > 0 ? `${userRating} star${userRating > 1 ? 's' : ''}` : 'Select a rating'}
+            </span>
+          </div>
+          
+          <div className="feedback-input-container">
+            <label className="feedback-label" htmlFor="user-feedback">Your Feedback:</label>
+            <textarea
+              id="user-feedback"
+              className="feedback-textarea"
+              value={userFeedback}
+              onChange={(e) => setUserFeedback(e.target.value)}
+              placeholder="Share your experience with this shop..."
+              rows={4}
+            />
+          </div>
+          
+          <button 
+            className="submit-feedback-btn"
+            onClick={handleFeedbackSubmit}
+            disabled={userRating === 0}
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </section>
+
       Search
       <div className="stock-controls">
         <div className="search-box">

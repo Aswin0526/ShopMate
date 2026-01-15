@@ -747,6 +747,52 @@ const getOrders = async (req, res) => {
   }
 };
 
+const handleFeedbackSubmit = async (req, res) => {
+  const { customer_id, shopId, rating, feedback } = req.body;
+  console.log(customer_id, shopId, rating, feedback);
+  if (!customer_id || !shopId) {
+    return res.status(400).json({ message: "Login again" });
+  }
+
+  try {
+    const existing = await pool.query(
+      `SELECT * FROM shop_feedback WHERE customer_id = $1 AND shop_id = $2`,
+      [customer_id, shopId]
+    );
+
+    let result;
+
+    if (existing.rowCount > 0) {
+      result = await pool.query(
+        `
+      UPDATE shop_feedback
+      SET ratings = $3, feedback = $4
+      WHERE customer_id = $1 AND shop_id = $2
+      RETURNING *
+      `,
+        [customer_id, shopId, rating, feedback]
+      );
+    } else {
+      result = await pool.query(
+        `
+      INSERT INTO shop_feedback (customer_id, shop_id, ratings, feedback)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+      `,
+        [customer_id, shopId, rating, feedback]
+      );
+    }
+
+    res.status(201).json({
+      message: "Feedback submitted successfully",
+      feedback: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Feedback submit error:", err);
+    res.status(500).json({ message: "Failed to submit feedback" });
+  }
+};
+
 module.exports = {
   registerCustomer,
   loginCustomer,
@@ -759,4 +805,5 @@ module.exports = {
   deleteWishlist,
   order,
   getOrders,
+  handleFeedbackSubmit,
 };

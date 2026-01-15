@@ -323,13 +323,13 @@
 }
 
 .products-table thead th {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: var(--bg-white);
   padding: 16px 12px;
   text-align: left;
   font-weight: 600;
   font-size: 14px;
-  border-bottom: 2px solid var(--primary);
+  border-bottom: 2px solid #667eea;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -472,4 +472,130 @@
   .products-table th, .products-table td { padding: 8px 6px; }
   .stock-controls { flex-direction: column; align-items: stretch; gap: 12px; }
   .search-box { max-width: none; }
+}
+
+/* Add Rating and Feedback Section */
+.add-feedback-section {
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+
+.add-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rating-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rating-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.interactive-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.interactive-stars .star {
+  font-size: 36px;
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.interactive-stars .star:hover {
+  transform: scale(1.1);
+}
+
+.rating-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.feedback-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.feedback-textarea {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.feedback-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.feedback-textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.submit-feedback-btn {
+  padding: 14px 28px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  align-self: flex-start;
+}
+
+.submit-feedback-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.submit-feedback-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submit-feedback-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments for add feedback section */
+@media (max-width: 768px) {
+  .add-feedback-section {
+    padding: 20px;
+  }
+  
+  .interactive-stars .star {
+    font-size: 32px;
+  }
+  
+  .submit-feedback-btn {
+    width: 100%;
+  }
 }
