@@ -225,6 +225,7 @@ const loginCustomer = async (req, res) => {
 
 const getCustomerProfile = async (req, res) => {
   try {
+    console.log("in");
     const customerId = req.user.id;
 
     const result = await pool.query(
@@ -793,6 +794,128 @@ const handleFeedbackSubmit = async (req, res) => {
   }
 };
 
+const updateCustomerProfile = async (req, res) => {
+  try {
+    const customerId = req.user.id;
+    const {
+      customer_name,
+      customer_phone,
+      customer_email,
+      customer_state,
+      customer_country,
+      customer_city,
+      customer_pincode,
+    } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer ID is required",
+      });
+    }
+
+    // Validate required fields
+    if (!customer_name || !customer_phone || !customer_email || 
+        !customer_state || !customer_country || !customer_city || !customer_pincode) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // Validate email format
+    if (!isValidEmail(customer_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    // Validate phone format
+    if (!isValidPhone(customer_phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number",
+      });
+    }
+
+    // Validate pincode format
+    if (!isValidPincode(customer_pincode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid pincode",
+      });
+    }
+
+    // Check if email is already used by another customer
+    const existingEmail = await pool.query(
+      "SELECT customer_id FROM customers WHERE customer_email = $1 AND customer_id != $2",
+      [customer_email, customerId]
+    );
+
+    if (existingEmail.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Email is already registered by another account",
+      });
+    }
+
+    // Check if phone is already used by another customer
+    const existingPhone = await pool.query(
+      "SELECT customer_id FROM customers WHERE customer_phone = $1 AND customer_id != $2",
+      [customer_phone, customerId]
+    );
+
+    if (existingPhone.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Phone number is already registered by another account",
+      });
+    }
+
+    // Update customer profile
+    const result = await pool.query(
+      `UPDATE customers 
+       SET customer_name = $1, customer_phone = $2, customer_email = $3, 
+           customer_state = $4, customer_country = $5, customer_city = $6, 
+           customer_pincode = $7, updated_at = CURRENT_TIMESTAMP
+       WHERE customer_id = $8
+       RETURNING customer_id, customer_name, customer_phone, customer_email, 
+                 customer_state, customer_country, customer_city, customer_pincode, updated_at`,
+      [
+        customer_name,
+        customer_phone,
+        customer_email,
+        customer_state,
+        customer_country,
+        customer_city,
+        customer_pincode,
+        customerId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update customer profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerCustomer,
   loginCustomer,
@@ -806,4 +929,5 @@ module.exports = {
   order,
   getOrders,
   handleFeedbackSubmit,
+  updateCustomerProfile,
 };

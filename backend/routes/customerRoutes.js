@@ -13,6 +13,7 @@ const {
   order,
   getOrders,
   handleFeedbackSubmit,
+  updateCustomerProfile,
 } = require("../controllers/customerController");
 const { verifyToken, isCustomer } = require("../middleware/auth");
 
@@ -24,6 +25,8 @@ router.post("/getShopInLoc", verifyToken, isCustomer, getShopInLoc);
 router.post("/getShopDetails", verifyToken, isCustomer, getShopDetails);
 
 router.get("/profile", verifyToken, isCustomer, getCustomerProfile);
+router.post("/profile", verifyToken, isCustomer, getCustomerProfile);
+router.put("/updateProfile", verifyToken, isCustomer, updateCustomerProfile);
 router.post("/logout", logoutCustomer);
 
 router.post("/addWishList", verifyToken, isCustomer, addWishList);

@@ -3,10 +3,13 @@ import '../styles/Customerdash.css';
 import CHome from '../components/CHome';
 import Corder from '../components/COrder';
 import Custorders from '../components/Custorders';
+import Chat from '../components/Chat';
+import CUpdate from '../components/CUpdate';
 
 function Customerdash() {
   const custData = JSON.parse(localStorage.getItem('user_data'));
   const [activeTab, setActiveTab] = useState('Home');
+  const [showChat, setShowChat] = useState(false);
 
   return (
     <div className="container">
@@ -19,25 +22,42 @@ function Customerdash() {
         </div>
 
         <nav className="nav">
-          {['Home', 'WishList', 'Orders', 'Update', 'Chat'].map(tab => (
+          {['Home', 'WishList', 'Orders', 'Update'].map(tab => (
             <button
               key={tab}
               className={activeTab === tab ? 'nav-link active' : 'nav-link'}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setShowChat(false);
+              }}
             >
               {tab}
             </button>
           ))}
+          <button
+            className={showChat ? 'nav-link active' : 'nav-link'}
+            onClick={() => {
+              setShowChat(true);
+              setActiveTab('Chat');
+            }}
+          >
+            Chat
+          </button>
         </nav>
       </header> 
 
       <main>
-        {activeTab === 'Home' && <CHome custData={custData} />}
-        {activeTab === 'WishList' && <Corder custData={custData} />}
-        {activeTab === 'Orders' && <Custorders custData={custData} />}
+        {activeTab === 'Home' && !showChat && <CHome custData={custData} />}
+        {activeTab === 'WishList' && !showChat && <Corder custData={custData} />}
+        {activeTab === 'Orders' && !showChat && <Custorders custData={custData} />}
+        {activeTab === 'Chat' && showChat && (
+          <Chat custData={custData} onClose={() => setShowChat(false)} />
+        )}
+        {activeTab === 'Update' && !showChat && <CUpdate custData={custData} />}
       </main>
     </div>
   );
 }
 
 export default Customerdash;
+
