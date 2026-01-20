@@ -281,3 +281,68 @@
     }
 }
 
+/* Section Titles for Update Component */
+.section-title {
+    color: #4338ca;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 2rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e0e7ff;
+}
+
+/* Images Section */
+.images-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 2px solid #e0e7ff;
+}
+
+.images-section h4 {
+    color: #4f46e5;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.logo-section,
+.shop-images-section {
+    margin-bottom: 1.5rem;
+}
+
+.logo-section:last-child,
+.shop-images-section:last-child {
+    margin-bottom: 0;
+}
+
+.images-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.images-grid img {
+    border-radius: 8px;
+    border: 2px solid #e0e7ff;
+    transition: all 0.3s ease;
+}
+
+.images-grid img:hover {
+    border-color: #6366f1;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+/* Responsive for images section */
+@media (max-width: 768px) {
+    .images-section {
+        padding: 1rem;
+    }
+    
+    .images-grid {
+        justify-content: center;
+    }
+}
+

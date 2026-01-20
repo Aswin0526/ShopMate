@@ -30,10 +30,11 @@ const Stock = ({ Data }) => {
     .replace(/[^a-z0-9_]/g, '');
 
   const tableName = `${Data.type}_${Data.shop_id}_${normalizedShopName}`;
-
+  console.log(tableName);
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      console.log("in");
       const token = localStorage.getItem('access_token');
       const response = await fetch('http://localhost:5000/api/owners/get-products', {
         method: 'POST',

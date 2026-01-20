@@ -12,7 +12,7 @@ const {
 } = require("../utils/validation");
 
 const base64ToBuffer = (base64String) => {
-  if (!base64String) return null;
+  if (!base64String || base64String === 'null' || base64String === 'undefined') return null;
   const base64Data = base64String.replace(/^data:image\/\w+;base64,/, "");
   return Buffer.from(base64Data, "base64");
 };
@@ -877,7 +877,26 @@ const uploadShopImage = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const { shop_id, image_type, image_key, image_data } = req.body;
+    console.log("in");
+    let shop_id, image_type, image_key, image_data;
+    console.log(req.file);
+    if (req.file) {
+      shop_id = req.body.shop_id;
+      image_type = req.body.image_type;
+      image_key = req.body.image_key;
+      console.log(shop_id, image_type, image_key)
+
+      const mimeType = req.file.mimetype || 'image/jpeg';
+      image_data = `data:${mimeType};base64,${req.file.buffer.toString('base64')}`;
+      console.log(image_data)
+    } else {
+      // Data came as regular form fields (base64 string)
+      shop_id = req.body.shop_id;
+      image_type = req.body.image_type;
+      image_key = req.body.image_key;
+      image_data = req.body.image_data;
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!shop_id || !image_type || !image_data) {
@@ -938,6 +957,7 @@ const uploadShopImage = async (req, res) => {
     client.release();
   }
 };
+
 
 const completeRegistration = async (req, res) => {
   const client = await pool.connect();
@@ -1803,6 +1823,226 @@ const markOrderDoneAndDelete = async (req, res) => {
   }
 };
 
+const updateOwnerProfile = async (req, res) => {
+  try {
+    const ownerId = req.user.id;
+    const { owner_name, owner_email, owner_phone, owner_location } = req.body;
+
+    if (!ownerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Owner ID is required",
+      });
+    }
+
+    // Validate required fields
+    if (!owner_name || !owner_email || !owner_phone || !owner_location) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // Validate email format
+    if (!isValidEmail(owner_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+      });
+    }
+
+    // Validate phone format
+    if (!isValidPhone(owner_phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number",
+      });
+    }
+
+    // Check if email is already used by another owner
+    const existingEmail = await pool.query(
+      "SELECT owner_id FROM owners WHERE owner_email = $1 AND owner_id != $2",
+      [owner_email, ownerId]
+    );
+
+    if (existingEmail.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Email is already registered by another account",
+      });
+    }
+
+    // Check if phone is already used by another owner
+    const existingPhone = await pool.query(
+      "SELECT owner_id FROM owners WHERE owner_phone = $1 AND owner_id != $2",
+      [owner_phone, ownerId]
+    );
+
+    if (existingPhone.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Phone number is already registered by another account",
+      });
+    }
+
+    // Update owner profile
+    const result = await pool.query(
+      `UPDATE owners 
+       SET owner_name = $1, owner_email = $2, owner_phone = $3, owner_location = $4, updated_at = CURRENT_TIMESTAMP
+       WHERE owner_id = $5
+       RETURNING owner_id, owner_name, owner_email, owner_phone, owner_location, updated_at`,
+      [owner_name, owner_email, owner_phone, owner_location, ownerId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Owner not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Owner profile updated successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update owner profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const updateShopProfile = async (req, res) => {
+  try {
+    const shopId = req.user.shopId;
+    const {
+      shop_name,
+      shop_phone,
+      shop_email,
+      shop_website,
+      shop_country,
+      shop_state,
+      shop_city,
+      shop_pincode,
+      shop_gmap_link,
+    } = req.body;
+
+    if (!shopId) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required",
+      });
+    }
+
+    // Validate required fields
+    if (!shop_name || !shop_phone || !shop_email || 
+        !shop_country || !shop_state || !shop_city || !shop_pincode) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields are missing",
+      });
+    }
+
+    // Validate email format
+    if (!isValidEmail(shop_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid shop email format",
+      });
+    }
+
+    // Validate phone format
+    if (!isValidPhone(shop_phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid shop phone number",
+      });
+    }
+
+    // Validate pincode format
+    if (!isValidPincode(shop_pincode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid pincode",
+      });
+    }
+
+    // Check if email is already used by another shop
+    const existingEmail = await pool.query(
+      "SELECT shop_id FROM shops WHERE shop_email = $1 AND shop_id != $2",
+      [shop_email, shopId]
+    );
+
+    if (existingEmail.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Email is already registered by another shop",
+      });
+    }
+
+    // Check if phone is already used by another shop
+    const existingPhone = await pool.query(
+      "SELECT shop_id FROM shops WHERE shop_phone = $1 AND shop_id != $2",
+      [shop_phone, shopId]
+    );
+
+    if (existingPhone.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Phone number is already registered by another shop",
+      });
+    }
+
+    // Update shop profile
+    const result = await pool.query(
+      `UPDATE shops 
+       SET shop_name = $1, shop_phone = $2, shop_email = $3, 
+           shop_website = $4, shop_country = $5, shop_state = $6, 
+           shop_city = $7, shop_pincode = $8, shop_gmap_link = $9, updated_at = CURRENT_TIMESTAMP
+       WHERE shop_id = $10
+       RETURNING shop_id, owner_id, shop_name, shop_phone, shop_email, 
+                 shop_website, shop_country, shop_state, shop_city, 
+                 shop_pincode, shop_gmap_link, type, updated_at`,
+      [
+        shop_name,
+        shop_phone,
+        shop_email,
+        shop_website || '',
+        shop_country,
+        shop_state,
+        shop_city,
+        shop_pincode,
+        shop_gmap_link || '',
+        shopId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Shop not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Shop profile updated successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Update shop profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerOwner,
   registerOwnerBasic,
@@ -1823,4 +2063,6 @@ module.exports = {
   approveOrder,
   markDone,
   markOrderDoneAndDelete,
+  updateOwnerProfile,
+  updateShopProfile,
 };

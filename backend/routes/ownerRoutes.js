@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
 const {
   registerOwner,
   registerOwnerBasic,
@@ -20,8 +21,16 @@ const {
   approveOrder,
   markDone,
   markOrderDoneAndDelete,
+  updateOwnerProfile,
+  updateShopProfile,
 } = require("../controllers/ownerController");
 const { verifyToken, isOwner, isCustomer } = require("../middleware/auth");
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // Public routes
 router.post("/register", registerOwner);
@@ -36,6 +45,8 @@ router.post("/getAvgRatings", verifyToken, getAvgRatings);
 
 // Protected routes
 router.get("/profile", verifyToken, isOwner, getOwnerProfile);
+router.put("/updateOwnerProfile", verifyToken, isOwner, updateOwnerProfile);
+router.put("/updateShopProfile", verifyToken, isOwner, updateShopProfile);
 router.post("/logout", logoutOwner);
 
 // Product management routes
