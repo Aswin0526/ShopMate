@@ -9,7 +9,7 @@ const PRODUCT_TYPES = [
   { id: 'groceries', name: 'Groceries'},
 ];
 
-function Chat({ custData, onClose }) {
+function Chat({ custData, onClose, onVoiceOpen }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     shopName: '',
@@ -63,8 +63,15 @@ function Chat({ custData, onClose }) {
         }
       );
       const data = await response.json();
-      if (!data.success) {
+      console.log("here",data);
+      if (!data.message) {
         console.error("Failed to start a chat");
+      } else {
+        // Open voice component after successful API call
+        if (onVoiceOpen) {
+          console.log("in");
+          onVoiceOpen();
+        }
       }
     } catch (err) {
       console.error("error:", err);

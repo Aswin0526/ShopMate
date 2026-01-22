@@ -4,20 +4,17 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const multer = require("multer");
 require("dotenv").config();
-
 const customerRoutes = require("./routes/customerRoutes");
 const ownerRoutes = require("./routes/ownerRoutes");
 const { refreshAccessToken } = require("./controllers/authController");
 
 const app = express();
 
-// Configure multer for memory storage (to get base64 data)
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 } 
 });
 
-// Middleware
 app.use(helmet());
 app.use(cors());
 app.use(morgan("dev"));
@@ -25,7 +22,6 @@ app.use(morgan("dev"));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Make multer available to routes
 app.use((req, res, next) => {
   req.upload = upload;
   next();

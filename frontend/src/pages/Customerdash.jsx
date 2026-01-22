@@ -5,11 +5,18 @@ import Corder from '../components/COrder';
 import Custorders from '../components/Custorders';
 import Chat from '../components/Chat';
 import CUpdate from '../components/CUpdate';
+import Voice from '../components/Voice';
 
 function Customerdash() {
   const custData = JSON.parse(localStorage.getItem('user_data'));
   const [activeTab, setActiveTab] = useState('Home');
   const [showChat, setShowChat] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
+
+  const handleVoiceOpen = () => {
+    setShowChat(false); 
+    setShowVoice(true);
+  };
 
   return (
     <div className="container">
@@ -51,8 +58,9 @@ function Customerdash() {
         {activeTab === 'WishList' && !showChat && <Corder custData={custData} />}
         {activeTab === 'Orders' && !showChat && <Custorders custData={custData} />}
         {activeTab === 'Chat' && showChat && (
-          <Chat custData={custData} onClose={() => setShowChat(false)} />
+          <Chat custData={custData} onClose={() => setShowChat(false)} onVoiceOpen={handleVoiceOpen} />
         )}
+        {showVoice && <Voice onClose={() => setShowVoice(false)} />}
         {activeTab === 'Update' && !showChat && <CUpdate custData={custData} />}
       </main>
     </div>

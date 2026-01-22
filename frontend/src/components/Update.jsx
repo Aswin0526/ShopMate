@@ -11,12 +11,10 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
     const [success, setSuccess] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     
-    // Upload states
     const [uploadStatus, setUploadStatus] = useState({});
     const [previewImages, setPreviewImages] = useState({});
     const fileInputRefs = useRef({});
 
-    // Owner form state
     const [ownerFormData, setOwnerFormData] = useState({
         owner_name: '',
         owner_email: '',

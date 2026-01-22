@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from langchain_community.utilities import SQLDatabase
 from langchain_google_genai import GoogleGenerativeAI
 import os
+from pydantic import BaseModel
 
 app = Flask(__name__)
 
@@ -35,4 +36,20 @@ def get_session():
         "formData": session.get("formData")
     })
 
+class TranscriptRequest(BaseModel):
+    text: str
+
+@app.route("/transcribe", methods=["POST"])
+def transcribe():
+    data = request.get_json()   
+    text = data.get("text", "")  
+
+    print("Received transcript:", text)
+
+    return jsonify({
+        "success": True,
+        "received_text": text
+    })
+
 app.run(port=3000, debug=True)
+

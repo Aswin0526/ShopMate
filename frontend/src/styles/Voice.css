@@ -1,0 +1,234 @@
+/* Voice Modal Full Screen Overlay */
+.voice-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+/* Voice Modal Container - Full Screen (matching Chat.jsx) */
+.voice-modal {
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #4b0082 0%, #6610f2 50%, #6f42c1 100%);
+  border-radius: 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: voiceModalSlideIn 0.4s ease-out;
+}
+
+@keyframes voiceModalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Close Button (matching Chat.jsx style) */
+.voice-modal-close {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 32px;
+  font-weight: bold;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.voice-modal-close:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: rotate(90deg);
+}
+
+/* Voice Content - Centered */
+.voice-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 40px;
+  gap: 30px;
+}
+
+/* Microphone Button - ChatGPT Style */
+.voice-mic-button {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10a37f, #1a7f64);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(16, 163, 127, 0.4);
+  transition: all 0.3s ease;
+}
+
+.voice-mic-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 40px rgba(16, 163, 127, 0.5);
+}
+
+.voice-mic-button:active {
+  transform: scale(0.95);
+}
+
+/* Microphone Icon */
+.voice-mic-icon {
+  width: 50px;
+  height: 50px;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.voice-mic-icon.recording {
+  animation: voicePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes voicePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Status Text */
+.voice-status {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 22px;
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+}
+
+/* Transcript Container */
+.voice-transcript-container {
+  width: 100%;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 24px 32px;
+  margin-top: 20px;
+}
+
+/* Transcript Text */
+.voice-transcript {
+  color: white;
+  font-size: 20px;
+  line-height: 1.6;
+  margin: 0;
+  word-wrap: break-word;
+}
+
+/* Interim Transcript (being spoken) */
+.voice-interim {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+/* Voice Controls (Mute button) */
+.voice-controls {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+/* Mute Button */
+.voice-mute-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.voice-mute-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.voice-mute-btn.muted {
+  background: rgba(255, 82, 82, 0.3);
+  border-color: rgba(255, 82, 82, 0.5);
+}
+
+.voice-mute-btn.muted:hover {
+  background: rgba(255, 82, 82, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .voice-modal {
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+
+  .voice-content {
+    padding: 20px;
+    gap: 24px;
+  }
+
+  .voice-mic-button {
+    width: 100px;
+    height: 100px;
+  }
+
+  .voice-mic-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .voice-status {
+    font-size: 18px;
+  }
+
+  .voice-transcript-container {
+    max-width: 100%;
+    padding: 16px 20px;
+  }
+
+  .voice-transcript {
+    font-size: 16px;
+  }
+}
+
