@@ -32,7 +32,8 @@ function Chat({ custData, onClose, onVoiceOpen }) {
     if (currentStep < 3) {
       setCurrentStep(prev => prev + 1);
     } else {
-      handleSubmit();
+      // Just show the summary, don't submit yet
+      setIsSubmitted(true);
     }
   };
 
@@ -64,10 +65,9 @@ function Chat({ custData, onClose, onVoiceOpen }) {
       );
       const data = await response.json();
       console.log("here",data);
-      if (!data.message) {
+            if (!data.message) {
         console.error("Failed to start a chat");
       } else {
-        // Open voice component after successful API call
         if (onVoiceOpen) {
           console.log("in");
           onVoiceOpen();

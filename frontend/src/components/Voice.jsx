@@ -20,7 +20,6 @@ const Voice = ({ onClose }) => {
   const pauseTimeoutRef = useRef(null);
 
   useEffect(() => {
-    // Track interim vs final transcript
     if (transcript !== lastTranscriptRef.current) {
       const newText = transcript.slice(lastTranscriptRef.current.length);
       if (newText.trim()) {
@@ -31,7 +30,6 @@ const Voice = ({ onClose }) => {
   }, [transcript]);
 
   useEffect(() => {
-    // Set status based on listening state
     if (listening && !isMuted) {
       setStatus("Listening...");
     } else if (isMuted) {
