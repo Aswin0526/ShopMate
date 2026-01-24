@@ -4,6 +4,7 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import "../styles/Voice.css";
 
+
 const Voice = ({ onClose }) => {
   const {
     transcript,
@@ -15,6 +16,7 @@ const Voice = ({ onClose }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [status, setStatus] = useState("Tap to speak");
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   
   const lastTranscriptRef = useRef("");
   const pauseTimeoutRef = useRef(null);
@@ -30,17 +32,18 @@ const Voice = ({ onClose }) => {
   }, [transcript]);
 
   useEffect(() => {
-    if (listening && !isMuted) {
+    if (isPlayingAudio) {
+      setStatus("Playing response...");
+    } else if (listening && !isMuted) {
       setStatus("Listening...");
     } else if (isMuted) {
       setStatus("Muted - tap to unmute");
     } else {
       setStatus("Tap to speak");
     }
-  }, [listening, isMuted]);
+  }, [listening, isMuted, isPlayingAudio]);
 
   useEffect(() => {
-    // Auto-send after 1.5 seconds of no speech
     if (pauseTimeoutRef.current) {
       clearTimeout(pauseTimeoutRef.current);
     }
@@ -60,28 +63,76 @@ const Voice = ({ onClose }) => {
     };
   }, [transcript, listening, isMuted]);
 
+  // const sendTranscript = useCallback(() => {
+  //   const finalTranscript = transcript.trim();
+  //   if (finalTranscript) {
+  //     console.log("Sending transcript:", finalTranscript);
+      
+  //     // Send to backend
+  //     fetch("http://localhost:3000/transcribe", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({ text: finalTranscript }),
+  //     })
+  //       .then((res) => res.json())
+  //       .then((data) => {
+  //         console.log("Transcript sent successfully:", data);
+  //         resetTranscript();
+  //       })
+  //       .catch((err) => {
+  //         console.error("Error sending transcript:", err);
+  //       });
+  //   }
+  // }, [transcript]);
+
   const sendTranscript = useCallback(() => {
     const finalTranscript = transcript.trim();
-    if (finalTranscript) {
-      console.log("Sending transcript:", finalTranscript);
-      
-      // Send to backend
-      fetch("http://localhost:3000/transcribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: finalTranscript }),
+
+    if (!finalTranscript) return;
+
+    console.log("Sending transcript:", finalTranscript);
+    setIsMuted(true);
+    setIsPlayingAudio(true);
+    
+    fetch("http://localhost:3000/transcribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: finalTranscript }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.blob();
       })
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("Transcript sent successfully:", data);
-        })
-        .catch((err) => {
-          console.error("Error sending transcript:", err);
+      .then((audioBlob) => {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        audio.play().catch((err) => {
+          console.error("Error playing audio:", err);
+          setIsPlayingAudio(false);
+          setIsMuted(false);
         });
-    }
-  }, [transcript]);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl); // cleanup
+          setIsPlayingAudio(false);
+          setIsMuted(false);
+          resetTranscript();
+        };
+      })
+      .catch((err) => {
+        console.error("Error sending transcript:", err);
+        setIsPlayingAudio(false);
+        setIsMuted(false);
+      });
+  }, [transcript, resetTranscript]);
+
 
   const startListening = () => {
     setIsMuted(false);

@@ -32,7 +32,6 @@ function Chat({ custData, onClose, onVoiceOpen }) {
     if (currentStep < 3) {
       setCurrentStep(prev => prev + 1);
     } else {
-      // Just show the summary, don't submit yet
       setIsSubmitted(true);
     }
   };
