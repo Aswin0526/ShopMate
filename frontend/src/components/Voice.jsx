@@ -103,7 +103,7 @@ const Voice = ({ onClose }) => {
     setIsMuted(true);
     setIsPlayingAudio(true);
 
-    fetch("http://localhost:3000/transcribe", {
+    fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

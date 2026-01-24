@@ -899,10 +899,18 @@ const uploadShopImage = async (req, res) => {
 
     const authHeader = req.headers.authorization;
 
-    if (!shop_id || !image_type || !image_data) {
+    if (!shop_id || !image_type) {
       return res.status(400).json({
         success: false,
-        message: "shop_id, image_type, and image_data are required",
+        message: "shop_id and image_type are required",
+      });
+    }
+
+    // Allow null or empty string image_data for deletion
+    if (image_data === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "image_data is required",
       });
     }
 

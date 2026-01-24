@@ -35,7 +35,7 @@ const Shopdash = () => {
 
   const fetchLogo = async () => {
     try {
-        const response = await fetch('http://localhost:5000/api/owners/get-logo', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-logo`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ const Shopdash = () => {
 
     const fetchShopImages = async () => {
         try {
-            const response = await fetch('http://localhost:5000/api/owners/get-shop-images', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-shop-images`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ const Shopdash = () => {
         console.log("Fetching feedbacks...")
         const token = localStorage.getItem('access_token');
         const response = await fetch(
-          "http://localhost:5000/api/owners/getfeedbacks",
+          `${import.meta.env.VITE_BACKEND_URL}/api/owners/getfeedbacks`,
           {
             method: "POST",
             headers: {

@@ -48,7 +48,7 @@ const Overview = (data) => {
         try {
             const token = localStorage.getItem('access_token');
             const response = await fetch(
-                "http://localhost:5000/api/owners/getAvgRatings",
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/getAvgRatings`,
                 {
                     method: "POST",
                     headers: {
@@ -91,9 +91,9 @@ const Overview = (data) => {
             try {
                 console.log("Fetching feedbacks...")
                 const token = localStorage.getItem('access_token');
-                const response = await fetch(
-                    "http://localhost:5000/api/owners/getfeedbacks",
-                    {
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/getfeedbacks`,
+                {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",

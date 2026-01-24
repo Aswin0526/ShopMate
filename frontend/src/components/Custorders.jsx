@@ -14,7 +14,7 @@ function Custorders({ custData }) {
     const fetchOrders = async () => {
       try {
         const res = await fetch(
-          "http://localhost:5000/api/customers/getOrders",
+          `${import.meta.env.VITE_BACKEND_URL}/api/customers/getOrders`,
           {
             method: "POST",
             headers: {

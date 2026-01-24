@@ -36,7 +36,7 @@ const Stock = ({ Data }) => {
       setLoading(true);
       console.log("in");
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/owners/get-products', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +193,7 @@ const Stock = ({ Data }) => {
         requestBody.product_id = editingProduct.id || editingProduct.cosmetics_id;
       }
 
-      const response = await fetch(`http://localhost:5000/api/owners${endpoint}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -237,7 +237,7 @@ const Stock = ({ Data }) => {
       const token = localStorage.getItem('access_token');
       const productId = product.id || product.cosmetics_id;
 
-      const response = await fetch('http://localhost:5000/api/owners/delete-product', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/delete-product`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -51,7 +51,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
     setIsSubmitted(true);
     try {
       const response = await fetch(
-        "http://localhost:3000/start-chat",
+        `${import.meta.env.VITE_CHATBOT_URL}/start-chat`,
         {
           method: "POST",
           headers: {

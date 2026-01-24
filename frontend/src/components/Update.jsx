@@ -38,7 +38,7 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
     const fetchOwnerProfile = async () => {
         const token = localStorage.getItem("access_token");
         try {
-            const res = await fetch("http://localhost:5000/api/owners/profile", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/profile`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
@@ -63,7 +63,7 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
     const fetchLogo = async () => {
         try {
             const token = localStorage.getItem("access_token");
-            const response = await fetch('http://localhost:5000/api/owners/get-logo', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-logo`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
     const fetchShopImages = async () => {
         try {
             const token = localStorage.getItem("access_token");
-            const response = await fetch('http://localhost:5000/api/owners/get-shop-images', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-shop-images`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -202,7 +202,7 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
 
         try {
             const res = await fetch(
-                "http://localhost:5000/api/owners/updateOwnerProfile",
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/updateOwnerProfile`,
                 {
                     method: "PUT",
                     headers: {
@@ -251,7 +251,7 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
 
         try {
             const res = await fetch(
-                "http://localhost:5000/api/owners/updateShopProfile",
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/updateShopProfile`,
                 {
                     method: "PUT",
                     headers: {
@@ -373,7 +373,7 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
                 });
             }, 200);
 
-            const response = await fetch('http://localhost:5000/api/owners/upload-image', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/upload-image`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -444,10 +444,10 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
                 shop_id: shopData.shop_id,
                 image_type: imageKey === 'logo' ? 'logo' : 'shop',
                 image_key: imageKey === 'logo' ? undefined : imageKey,
-                image_data: null // Send null to clear the image
+                image_data: null // Send null to clear/delete the image
             };
 
-            const response = await fetch('http://localhost:5000/api/owners/upload-image', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/upload-image`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -865,4 +865,3 @@ function Update({ Data, logo: propLogo, shopImages: propShopImages }) {
 }
 
 export default Update;
-

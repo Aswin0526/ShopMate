@@ -193,7 +193,7 @@ const Register = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/customers/register', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/customers/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,7 +274,7 @@ const Register = () => {
           shop_gmap_link: ownerForm.shop_gmap_link,
           shop_password: ownerForm.shop_password}
       )
-      const basicResponse = await fetch('http://localhost:5000/api/owners/register-basic', {
+      const basicResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/register-basic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ const Register = () => {
 
       // Step 2: Upload all images in one request
       try {
-        const completeResponse = await fetch('http://localhost:5000/api/owners/complete-registration', {
+        const completeResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/complete-registration`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

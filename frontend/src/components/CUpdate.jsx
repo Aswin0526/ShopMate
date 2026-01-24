@@ -50,7 +50,7 @@ function CUpdate({custData}){
 
         try {
             const res = await fetch(
-                "http://localhost:5000/api/customers/profile",
+                `${import.meta.env.VITE_BACKEND_URL}/api/customers/profile`,
                 {
                     method: "POST",
                     headers: {
@@ -114,7 +114,7 @@ function CUpdate({custData}){
 
         try {
             const res = await fetch(
-                "http://localhost:5000/api/customers/updateProfile",
+                `${import.meta.env.VITE_BACKEND_URL}/api/customers/updateProfile`,
                 {
                     method: "PUT",
                     headers: {

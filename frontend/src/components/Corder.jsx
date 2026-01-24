@@ -109,7 +109,7 @@ function ProductCard({ product, quantity, onQuantityChange, custId, onDeleteSucc
    
     try {
       const response = await fetch(
-        "http://localhost:5000/api/customers/deleteWishList",
+        `${import.meta.env.VITE_BACKEND_URL}/api/customers/deleteWishList`,
         {
           method: "POST",
           headers: {
@@ -338,7 +338,7 @@ function Corder({ custData }) {
       setLoading(true);
       try {
         const response = await fetch(
-          'http://localhost:5000/api/customers/getWishList',
+          `${import.meta.env.VITE_BACKEND_URL}/api/customers/getWishList`,
           {
             method: 'POST',
             headers: {
@@ -451,7 +451,7 @@ function Corder({ custData }) {
 
   console.log(token)
   try {
-    const res = await fetch("http://localhost:5000/api/customers/order", {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/customers/order`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

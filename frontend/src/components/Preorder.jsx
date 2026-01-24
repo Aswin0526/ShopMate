@@ -15,7 +15,7 @@ function Preorder({ Data }) {
     const fetchOrders = async () => {
       try {
         const res = await fetch(
-          "http://localhost:5000/api/owners/getOrders",
+          `${import.meta.env.VITE_BACKEND_URL}/api/owners/getOrders`,
           {
             method: "POST",
             headers: {
@@ -43,7 +43,7 @@ function Preorder({ Data }) {
   const handleApproved = async (order) => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/owners/approve",
+        `${import.meta.env.VITE_BACKEND_URL}/api/owners/approve`,
         {
           method: "POST",
           headers: {
@@ -76,7 +76,7 @@ function Preorder({ Data }) {
   const handleDone = async (order) => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/owners/markDone",
+        `${import.meta.env.VITE_BACKEND_URL}/api/owners/markDone`,
         {
           method: "POST",
           headers: {

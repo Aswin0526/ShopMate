@@ -27,8 +27,8 @@ const Login = () => {
     try {
         console.log(formData.email);
       const endpoint = userType === 'customer' 
-        ? 'http://localhost:5000/api/customers/login'
-        : 'http://localhost:5000/api/owners/login';
+        ? `${import.meta.env.VITE_BACKEND_URL}/api/customers/login`
+        : `${import.meta.env.VITE_BACKEND_URL}/api/owners/login`;
 
       const response = await fetch(endpoint, {
         method: 'POST',

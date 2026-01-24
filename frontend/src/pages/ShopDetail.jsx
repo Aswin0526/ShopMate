@@ -41,9 +41,9 @@ function ShopDetail() {
     });
     try {
       console.log("inside feedback");
-      const response = await fetch(
-        "http://localhost:5000/api/customers/addfeedback",
-        {
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL}/api/customers/addfeedback`,
+                {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -76,9 +76,9 @@ function ShopDetail() {
 
     try {
       console.log("inside handlewishlist");
-      const response = await fetch(
-        "http://localhost:5000/api/customers/addWishList",
-        {
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL}/api/customers/addWishList`,
+                {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -106,38 +106,7 @@ function ShopDetail() {
     console.log("wishlist",wishlist);
   } 
 
-  // useEffect(
-  //   () =>{
-  //       const addWishList = async () => {
-  //       if (!wishlist) return;
-        
-  //       try {
-  //         const response = await fetch('http://localhost:5000/api/owners/addWishList', {
-  //           method: 'POST',
-  //           headers: {
-  //             'Content-Type': 'application/json',
-  //             'Authorization': `Bearer ${token}`,
-  //           },
-  //           body: JSON.stringify({ custId : custId, data: wishlist}),
-  //         });
 
-  //         const data = await response.json();
-  //         console.log(data);
-  //         if (data.success) {
-  //           console.log(added);
-  //         } else {
-  //           setError(data.message || 'Failed to add product in wishlist');
-  //         }
-  //       } catch (err) {
-  //         console.error('Error adding product to wish list:', err);
-  //         setError('Error adding product to wish list');
-  //       } finally {
-  //         setWishlist(new Set());
-  //       }
-  //     };
-  //     addWishList();
-  //   }
-  // , [wishlist]);
 
   const normalizedShopName = shopName
     ? shopName
@@ -155,7 +124,7 @@ function ShopDetail() {
     
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/owners/get-products', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -237,9 +206,9 @@ function ShopDetail() {
     const fetchAvgRating = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch(
-          "http://localhost:5000/api/owners/getAvgRatings",
-          {
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/getAvgRatings`,
+                {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -268,9 +237,9 @@ function ShopDetail() {
     const fetchFeedbacks = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch(
-          "http://localhost:5000/api/owners/getfeedbacks",
-          {
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/getfeedbacks`,
+                {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -300,8 +269,8 @@ function ShopDetail() {
     const fetchShopImages = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:5000/api/owners/get-shop-images', {
-          method: 'POST',
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-shop-images`, {
+        method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
@@ -331,7 +300,7 @@ function ShopDetail() {
       try {
         const token = localStorage.getItem('access_token');
         const response = await fetch(
-          "http://localhost:5000/api/customers/getShopDetails",
+          `${import.meta.env.VITE_BACKEND_URL}/api/customers/getShopDetails`,
           {
             method: "POST",
             headers: {
