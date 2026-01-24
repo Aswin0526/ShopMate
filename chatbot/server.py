@@ -12,8 +12,46 @@ from dotenv import load_dotenv
 from elevenlabs.client import ElevenLabs
 from elevenlabs.play import play
 import hashlib
+from sentence_transformers import SentenceTransformer, util
+import torch
 
-load_dotenv()
+model = SentenceTransformer('all-mpnet-base-v2')
+
+intents = {
+    "SMALL_TALK": [
+        "How are you?", "Who are you?", "Hello", "Good morning", "What's up",
+        "Are you a robot?", "Nice to meet you", "Hey there", "Greetings",
+        "Hope you are having a good day", "Bye", "Thank you"
+    ],
+    "DATA_QUERY": [
+        "Quantity", "Stocks", "How many", "Do you have", "In stock", "price", "warranty", "image","model number",
+        "How many books are in stock?", "Do you have 5 copies of Harry Potter?",
+        "Is there any milk in the grocery section?", "Check electronics inventory",
+        "How many red lipsticks are left?", "Are there any medium size t-shirts?",
+        
+        "Price", "Cost", "How much", "Rate", "Amount", "Discount",
+        "What is the price of this product?", "How much does the laptop cost?",
+        "What is the rate for organic milk?", "Is there a discount on cosmetics?",
+        "Price list for groceries", "Tell me the cost of this shirt",
+        "How much for 10 units of eggs?", "What is the total price?",
+
+        "Where is this kept?", "Find the ID of this product", "Do you have warranty for this product", "model number of the product",
+        "Which aisle is the grocery in?", "Product code for the electronics"
+    ],
+    "PRODUCT_INFO": [
+        "Quality", "Features", "Comparison", "Versus",
+        "What are the specs of this laptop?", "Is this book hardcover?", 
+        "Tell me about the material of this shirt", "What features does this have?",
+        "What are the ingredients in this face cream?", "Is this milk organic?",
+        "What is the battery life of these headphones?", "Does the dress have pockets?",
+        "Is iPhone better than Samsung?", "Difference between organic and regular milk"
+    ],
+    "OUT_OF_DOMAIN": [
+        "How do I write Python code?", "What is AI?", "Who won the football match?", 
+        "Weather in London", "Translate this to Spanish", "Tell me a joke",
+        "How to cook eggs", "Solve this math problem", "Who is the president?"
+    ]
+}
 
 load_dotenv()
 
@@ -97,10 +135,28 @@ def generate_audio(message):
         print(f"Error generating audio: {e}")
         yield b''
 
+def get_intent(user_text):
+    user_vec = model.encode(user_text, convert_to_tensor=True)
+    
+    best_intent = None
+    highest_score = 0
+    
+    for intent_name, examples in intents.items():
+        example_vecs = model.encode(examples, convert_to_tensor=True)
+        scores = util.cos_sim(user_vec, example_vecs)
+        max_score = torch.max(scores).item()
+        
+        if max_score > highest_score:
+            highest_score = max_score
+            best_intent = intent_name
+            
+    if highest_score < 0.45:
+        return "OUT_OF_DOMAIN", highest_score
+        
+    return best_intent, highest_score
+
 class TranscriptRequest(BaseModel):
     text: str
-
-
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
@@ -113,8 +169,7 @@ def transcribe():
         return jsonify({"error": "Empty transcript"}), 400
     
     text = text.strip()
-    
-    # Rate limiting check
+
     if is_rate_limited(text):
         print(f"Request rate limited for transcript: '{text[:50]}...'")
         return jsonify({
@@ -123,22 +178,23 @@ def transcribe():
         }), 429
 
     print("Processing transcript:", text)
+    print(get_intent(text))
 
-    try:
-        response = chat.send_message(text)
-        message = response.text
-        print("AI message:", message)
+    # try:
+    #     response = chat.send_message(text)
+    #     message = response.text
+    #     print("AI message:", message)
 
-        response = Response(generate_audio(message), mimetype="audio/mpeg")
-        response.headers["Content-Disposition"] = "inline; filename=audio.mp3"
-        response.headers["Accept-Ranges"] = "bytes"
-        return response
-    except Exception as e:
-        print(f"Error processing transcript: {e}")
-        # Reset rate limiting on error to allow retry
-        global last_request_time
-        last_request_time = datetime.min
-        return jsonify({"error": str(e)}), 500
+    #     response = Response(generate_audio(message), mimetype="audio/mpeg")
+    #     response.headers["Content-Disposition"] = "inline; filename=audio.mp3"
+    #     response.headers["Accept-Ranges"] = "bytes"
+    #     return response
+    # except Exception as e:
+    #     print(f"Error processing transcript: {e}")
+    #     # Reset rate limiting on error to allow retry
+    #     global last_request_time
+    #     last_request_time = datetime.min
+    #     return jsonify({"error": str(e)}), 500
 
 @app.route("/transcribe/status", methods=["GET"])
 def transcribe_status():
@@ -154,5 +210,5 @@ def transcribe_status():
     })
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=3000)
+    app.run(host='0.0.0.0', port=3000, debug=True)
 
