@@ -20,6 +20,10 @@ const Voice = ({ onClose }) => {
   
   const lastTranscriptRef = useRef("");
   const pauseTimeoutRef = useRef(null);
+  const isTranscribingRef = useRef(false);
+  const lastSentTranscriptRef = useRef("");
+  const currentTimeoutRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (transcript !== lastTranscriptRef.current) {
@@ -63,39 +67,42 @@ const Voice = ({ onClose }) => {
     };
   }, [transcript, listening, isMuted]);
 
-  // const sendTranscript = useCallback(() => {
-  //   const finalTranscript = transcript.trim();
-  //   if (finalTranscript) {
-  //     console.log("Sending transcript:", finalTranscript);
-      
-  //     // Send to backend
-  //     fetch("http://localhost:3000/transcribe", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ text: finalTranscript }),
-  //     })
-  //       .then((res) => res.json())
-  //       .then((data) => {
-  //         console.log("Transcript sent successfully:", data);
-  //         resetTranscript();
-  //       })
-  //       .catch((err) => {
-  //         console.error("Error sending transcript:", err);
-  //       });
-  //   }
-  // }, [transcript]);
-
   const sendTranscript = useCallback(() => {
     const finalTranscript = transcript.trim();
 
-    if (!finalTranscript) return;
+    // Validation checks
+    if (!finalTranscript) {
+      console.log("Skipping: empty transcript");
+      return;
+    }
+
+    // Prevent duplicate requests
+    if (isTranscribingRef.current) {
+      console.log("Skipping: transcription already in progress");
+      return;
+    }
+
+    // Prevent sending the same transcript multiple times
+    if (lastSentTranscriptRef.current === finalTranscript) {
+      console.log("Skipping: duplicate transcript");
+      return;
+    }
+
+    // Clear any pending timeout
+    if (currentTimeoutRef.current) {
+      clearTimeout(currentTimeoutRef.current);
+      currentTimeoutRef.current = null;
+    }
 
     console.log("Sending transcript:", finalTranscript);
+    
+    // Mark as transcribing
+    isTranscribingRef.current = true;
+    lastSentTranscriptRef.current = finalTranscript;
+    
     setIsMuted(true);
     setIsPlayingAudio(true);
-    
+
     fetch("http://localhost:3000/transcribe", {
       method: "POST",
       headers: {
@@ -112,11 +119,16 @@ const Voice = ({ onClose }) => {
       .then((audioBlob) => {
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
+        
+        // Store audio reference for stopping later
+        audioRef.current = audio;
 
         audio.play().catch((err) => {
           console.error("Error playing audio:", err);
           setIsPlayingAudio(false);
           setIsMuted(false);
+          isTranscribingRef.current = false;
+          audioRef.current = null;
         });
 
         audio.onended = () => {
@@ -124,12 +136,17 @@ const Voice = ({ onClose }) => {
           setIsPlayingAudio(false);
           setIsMuted(false);
           resetTranscript();
+          isTranscribingRef.current = false;
+          lastSentTranscriptRef.current = "";
+          lastTranscriptRef.current = "";
+          audioRef.current = null;
         };
       })
       .catch((err) => {
         console.error("Error sending transcript:", err);
         setIsPlayingAudio(false);
         setIsMuted(false);
+        isTranscribingRef.current = false;
       });
   }, [transcript, resetTranscript]);
 
@@ -175,11 +192,46 @@ const Voice = ({ onClose }) => {
     }
   };
 
+  // Stop audio playback when closing the modal
+  const handleClose = () => {
+    // Stop audio if playing
+    if (audioRef.current) {
+      console.log("Stopping audio playback");
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    
+    // Reset all state
+    setIsPlayingAudio(false);
+    setIsMuted(false);
+    isTranscribingRef.current = false;
+    lastSentTranscriptRef.current = "";
+    lastTranscriptRef.current = "";
+    
+    // Clear any pending timeouts
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
+    if (currentTimeoutRef.current) {
+      clearTimeout(currentTimeoutRef.current);
+      currentTimeoutRef.current = null;
+    }
+    
+    // Stop speech recognition if active
+    if (listening) {
+      SpeechRecognition.stopListening();
+    }
+    
+    // Call the original onClose callback
+    onClose();
+  };
+
   if (!browserSupportsSpeechRecognition) {
     return (
       <div className="voice-modal-overlay">
         <div className="voice-modal">
-          <button className="voice-modal-close" onClick={onClose}>
+          <button className="voice-modal-close" onClick={handleClose}>
             ×
           </button>
           <div className="voice-content">
@@ -193,7 +245,7 @@ const Voice = ({ onClose }) => {
   return (
     <div className="voice-modal-overlay">
       <div className="voice-modal">
-        <button className="voice-modal-close" onClick={onClose}>
+        <button className="voice-modal-close" onClick={handleClose}>
           ×
         </button>
 
