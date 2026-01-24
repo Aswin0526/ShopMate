@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../styles/Customerdash.css';
 import CHome from '../components/CHome';
-import Corder from '../components/COrder';
+import Corder from '../components/Corder';
 import Custorders from '../components/Custorders';
 import Chat from '../components/Chat';
 import CUpdate from '../components/CUpdate';
@@ -16,6 +16,16 @@ function Customerdash() {
   const handleVoiceOpen = () => {
     setShowChat(false); 
     setShowVoice(true);
+  };
+
+  const handleChatClose = () => {
+    setShowChat(false);
+    setActiveTab('Home'); // Reset to Home page when chat is closed
+  };
+
+  const handleVoiceClose = () => {
+    setShowVoice(false);
+    setActiveTab('Home'); // Reset to Home page when voice chat is closed
   };
 
   return (
@@ -58,9 +68,9 @@ function Customerdash() {
         {activeTab === 'WishList' && !showChat && <Corder custData={custData} />}
         {activeTab === 'Orders' && !showChat && <Custorders custData={custData} />}
         {activeTab === 'Chat' && showChat && (
-          <Chat custData={custData} onClose={() => setShowChat(false)} onVoiceOpen={handleVoiceOpen} />
+          <Chat custData={custData} onClose={handleChatClose} onVoiceOpen={handleVoiceOpen} />
         )}
-        {showVoice && <Voice onClose={() => setShowVoice(false)} />}
+        {showVoice && <Voice onClose={handleVoiceClose} />}
         {activeTab === 'Update' && !showChat && <CUpdate custData={custData} />}
       </main>
     </div>

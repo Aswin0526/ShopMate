@@ -74,7 +74,6 @@ CORS(
 app.secret_key = "shopmate123"
 app.permanent_session_lifetime = timedelta(hours=1)
 
-# Rate limiting configuration
 RATE_LIMIT_SECONDS = 3 
 last_request_time = datetime.min
 last_request_text_hash = None
