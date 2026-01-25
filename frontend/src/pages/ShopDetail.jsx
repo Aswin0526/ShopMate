@@ -28,7 +28,6 @@ function ShopDetail() {
   const [userFeedback, setUserFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Handle star click with console log
   const handleStarClick = (rating) => {
     setUserRating(rating);
     console.log('Star clicked - Rating:', rating);
