@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../styles/Chat.css';
 
 const PRODUCT_TYPES = [
@@ -19,6 +19,71 @@ function Chat({ custData, onClose, onVoiceOpen }) {
     productType: '',
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  // Dropdown options
+  const [cities, setCities] = useState([]);
+  const [states, setStates] = useState([]);
+  const [countries, setCountries] = useState([]);
+  const [shops, setShops] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch all dropdown options on mount
+  useEffect(() => {
+    const fetchDropdownOptions = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        
+        const [citiesRes, statesRes, countriesRes] = await Promise.all([
+          fetch(`${backendUrl}/api/locations/cities`),
+          fetch(`${backendUrl}/api/locations/states`),
+          fetch(`${backendUrl}/api/locations/countries`)
+        ]);
+
+        const citiesData = await citiesRes.json();
+        const statesData = await statesRes.json();
+        const countriesData = await countriesRes.json();
+
+        if (citiesData.success) setCities(['Any', ...citiesData.data]);
+        if (statesData.success) setStates(['Any', ...statesData.data]);
+        if (countriesData.success) setCountries(['Any', ...countriesData.data]);
+        
+      } catch (error) {
+        console.error('Error fetching dropdown options:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDropdownOptions();
+  }, []);
+
+  useEffect(() => {
+    const fetchShops = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        
+        // Build query params based on selected filters
+        const params = new URLSearchParams();
+        if (formData.city && formData.city !== '') params.append('city', formData.city);
+        if (formData.state && formData.state !== '') params.append('state', formData.state);
+        if (formData.country && formData.country !== '') params.append('country', formData.country);
+        
+        const response = await fetch(`${backendUrl}/api/locations/shops?${params.toString()}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setShops([{ id: '', name: 'Any' }, ...data.data]);
+        }
+      } catch (error) {
+        console.error('Error fetching shops:', error);
+      }
+    };
+
+    // Only fetch shops if we're on step 3 or have location data
+    if (currentStep >= 2) {
+      fetchShops();
+    }
+  }, [formData.city, formData.state, formData.country, currentStep]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -49,34 +114,51 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   const handleSubmit = async () => {
     console.log('Form Submitted:', formData);
     setIsSubmitted(true);
+    
     try {
+      // Get or create session_id
+      let session_id = localStorage.getItem('session_id');
+      if (!session_id) {
+        session_id = crypto.randomUUID();
+        localStorage.setItem('session_id', session_id);
+      }
+      console.log("Using session_id:", session_id);
+
       const response = await fetch(
         `${import.meta.env.VITE_CHATBOT_URL}/start-chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-Session-ID": session_id
           },
           body: JSON.stringify({
+            session_id: session_id,
             formData: formData
           }),
         }
       );
       const data = await response.json();
-      console.log("here",data);
-            if (!data.message) {
+      console.log("Backend response:", data);
+      
+      if (!data.message) {
         console.error("Failed to start a chat");
       } else {
+        // Store session_id from backend response (for verification)
+        if (data.session_id) {
+          localStorage.setItem('session_id', data.session_id);
+          console.log("Session ID stored:", data.session_id);
+        }
+        console.log("Chat session started successfully!");
         if (onVoiceOpen) {
-          console.log("in");
+          console.log("Opening voice interface...");
           onVoiceOpen();
         }
       }
     } catch (err) {
-      console.error("error:", err);
-      setError("Error");
+      console.error("Error starting chat:", err);
+      setError("Error starting chat session");
     }
-    
   };
 
   const isStepValid = () => {
@@ -84,11 +166,11 @@ function Chat({ custData, onClose, onVoiceOpen }) {
       case 1:
         return formData.productType !== '';
       case 2:
-        return formData.city.trim() !== '' && 
-               formData.state.trim() !== '' && 
-               formData.country.trim() !== '';
+        return formData.city !== '' && 
+               formData.state !== '' && 
+               formData.country !== '';
       case 3:
-        return formData.shopName.trim() !== '';
+        return true; // Shop name is now optional
       default:
         return false;
     }
@@ -148,35 +230,45 @@ function Chat({ custData, onClose, onVoiceOpen }) {
     <div className="chat-question-content">
       <div className="chat-question-number">Question 2 of 3</div>
       <h2 className="chat-question-title">Where are you looking from?</h2>
-      <div className="chat-location-inputs">
-        <input
-          type="text"
-          className="chat-input"
-          placeholder="City"
-          value={formData.city}
-          onChange={(e) => handleInputChange('city', e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleNext()}
-          autoFocus
-        />
-        <div className="chat-location-row">
-          <input
-            type="text"
-            className="chat-input"
-            placeholder="State"
-            value={formData.state}
-            onChange={(e) => handleInputChange('state', e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleNext()}
-          />
-          <input
-            type="text"
-            className="chat-input"
-            placeholder="Country"
-            value={formData.country}
-            onChange={(e) => handleInputChange('country', e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleNext()}
-          />
+      {loading ? (
+        <div className="chat-loading">Loading locations...</div>
+      ) : (
+        <div className="chat-location-inputs">
+          <select
+            className="chat-input chat-select"
+            value={formData.city}
+            onChange={(e) => handleInputChange('city', e.target.value)}
+            autoFocus
+          >
+            <option value="">Select City</option>
+            {cities.map((city, index) => (
+              <option key={index} value={city}>{city}</option>
+            ))}
+          </select>
+          <div className="chat-location-row">
+            <select
+              className="chat-input chat-select"
+              value={formData.state}
+              onChange={(e) => handleInputChange('state', e.target.value)}
+            >
+              <option value="">Select State</option>
+              {states.map((state, index) => (
+                <option key={index} value={state}>{state}</option>
+              ))}
+            </select>
+            <select
+              className="chat-input chat-select"
+              value={formData.country}
+              onChange={(e) => handleInputChange('country', e.target.value)}
+            >
+              <option value="">Select Country</option>
+              {countries.map((country, index) => (
+                <option key={index} value={country}>{country}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -184,15 +276,21 @@ function Chat({ custData, onClose, onVoiceOpen }) {
     <div className="chat-question-content">
       <div className="chat-question-number">Question 3 of 3</div>
       <h2 className="chat-question-title">Any particular shop you're looking for?</h2>
-      <input
-        type="text"
-        className="chat-input"
-        placeholder="Enter shop name..."
-        value={formData.shopName}
-        onChange={(e) => handleInputChange('shopName', e.target.value)}
-        onKeyPress={(e) => e.key === 'Enter' && handleNext()}
-        autoFocus
-      />
+      {loading ? (
+        <div className="chat-loading">Loading shops...</div>
+      ) : (
+        <select
+          className="chat-input chat-select"
+          value={formData.shopName}
+          onChange={(e) => handleInputChange('shopName', e.target.value)}
+          autoFocus
+        >
+          <option value="">Select Shop (Optional)</option>
+          {shops.map((shop) => (
+            <option key={shop.id} value={shop.name}>{shop.name}</option>
+          ))}
+        </select>
+      )}
     </div>
   );
 

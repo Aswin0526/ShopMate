@@ -148,6 +148,48 @@
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
 }
 
+/* Select Dropdown Styles */
+.chat-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 20px center;
+  background-size: 16px;
+  padding-right: 50px;
+  cursor: pointer;
+  text-align: left;
+  text-align-last: left;
+}
+
+.chat-select option {
+  background: #4b0082;
+  color: white;
+  padding: 10px;
+  font-size: 16px;
+}
+
+.chat-select:invalid {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Loading State */
+.chat-loading {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  text-align: center;
+  padding: 20px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 /* Location Inputs Container */
 .chat-location-inputs {
   display: flex;

@@ -67,6 +67,20 @@ const Voice = ({ onClose }) => {
     };
   }, [transcript, listening, isMuted]);
 
+  const getSessionId = useCallback(() => {
+    // Get session_id from localStorage
+    let session_id = localStorage.getItem('session_id');
+    
+    // If no session_id exists, create one
+    if (!session_id) {
+      session_id = crypto.randomUUID();
+      localStorage.setItem('session_id', session_id);
+      console.log("Created new session_id:", session_id);
+    }
+    
+    return session_id;
+  }, []);
+
   const sendTranscript = useCallback(() => {
     const finalTranscript = transcript.trim();
 
@@ -103,10 +117,15 @@ const Voice = ({ onClose }) => {
     setIsMuted(true);
     setIsPlayingAudio(true);
 
+    // Get session_id
+    const session_id = getSessionId();
+    console.log("Using session_id:", session_id);
+
     fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-Session-ID": session_id  // Include session_id in header
       },
       body: JSON.stringify({ text: finalTranscript }),
     })
@@ -148,7 +167,7 @@ const Voice = ({ onClose }) => {
         setIsMuted(false);
         isTranscribingRef.current = false;
       });
-  }, [transcript, resetTranscript]);
+  }, [transcript, resetTranscript, getSessionId]);
 
 
   const startListening = () => {

@@ -636,7 +636,6 @@ const logoutOwner = async (req, res) => {
   }
 };
 
-// Register shop with basic data (no images) - for handling large payloads
 const registerOwnerBasic = async (req, res) => {
   const client = await pool.connect();
 
@@ -1317,8 +1316,6 @@ const updateProduct = async (req, res) => {
         message: "Table not found",
       });
     }
-
-    // Build dynamic UPDATE query
     const allowedColumns = columnsResult.rows.map((col) => col.column_name);
     const updateData = {};
 
@@ -1376,7 +1373,6 @@ const deleteProduct = async (req, res) => {
       });
     }
 
-    // Determine ID column based on shop type
     const idColumn =
       shop_type?.toLowerCase() === "cosmetics" ? "cosmetics_id" : "id";
 

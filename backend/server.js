@@ -6,6 +6,7 @@ const multer = require("multer");
 require("dotenv").config();
 const customerRoutes = require("./routes/customerRoutes");
 const ownerRoutes = require("./routes/ownerRoutes");
+const locationRoutes = require("./routes/locationRoutes");
 const { refreshAccessToken } = require("./controllers/authController");
 
 const app = express();
@@ -40,6 +41,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/customers", customerRoutes);
 app.use("/api/owners", ownerRoutes);
+app.use("/api/locations", locationRoutes);
 app.post("/api/auth/refresh", refreshAccessToken);
 
 app.use((req, res) => {
