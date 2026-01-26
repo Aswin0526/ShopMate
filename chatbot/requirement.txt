@@ -3,10 +3,8 @@ sqlalchemy
 langchain
 google-generativeai
 langchain_google_genai
-openai-whisper
 fastapi
 uvicorn 
-openai-whisper 
 torch 
 python-multipart
 sentence-transformers 

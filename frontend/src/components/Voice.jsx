@@ -3,6 +3,7 @@ import SpeechRecognition, {
   useSpeechRecognition
 } from "react-speech-recognition";
 import "../styles/Voice.css";
+import { EdgeTTS } from 'edge-tts-universal/browser';
 
 
 const Voice = ({ onClose }) => {
@@ -12,6 +13,8 @@ const Voice = ({ onClose }) => {
     resetTranscript,
     browserSupportsSpeechRecognition
   } = useSpeechRecognition();
+
+  const tts = new EdgeTTS();
 
   const [isMuted, setIsMuted] = useState(false);
   const [status, setStatus] = useState("Tap to speak");
@@ -121,52 +124,57 @@ const Voice = ({ onClose }) => {
     const session_id = getSessionId();
     console.log("Using session_id:", session_id);
 
-    fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Session-ID": session_id  // Include session_id in header
-      },
-      body: JSON.stringify({ text: finalTranscript }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.blob();
-      })
-      .then((audioBlob) => {
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        // Store audio reference for stopping later
-        audioRef.current = audio;
+fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Session-ID": session_id 
+  },
+  body: JSON.stringify({ text: finalTranscript }),
+})
+  .then((res) => {
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    return res.json(); // Change this from .blob() to .json()
+  })
+  .then(async (data) => {
+  const responseText = data.text;
+  console.log("response", responseText);
 
-        audio.play().catch((err) => {
-          console.error("Error playing audio:", err);
-          setIsPlayingAudio(false);
-          setIsMuted(false);
-          isTranscribingRef.current = false;
-          audioRef.current = null;
-        });
+  if (responseText) {
+    try {
+      setIsPlayingAudio(true);
+      
+      const ttsInstance = new EdgeTTS(responseText, 'en-IN-NeerjaNeural');
+      
+      // Call synthesize without arguments
+      const result = await ttsInstance.synthesize(); 
+      
+      const blob = new Blob([result.audio], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      
+      audioRef.current = audio;
 
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl); // cleanup
-          setIsPlayingAudio(false);
-          setIsMuted(false);
-          resetTranscript();
-          isTranscribingRef.current = false;
-          lastSentTranscriptRef.current = "";
-          lastTranscriptRef.current = "";
-          audioRef.current = null;
-        };
-      })
-      .catch((err) => {
-        console.error("Error sending transcript:", err);
+      audio.play().catch((err) => {
+        console.error("Playback error:", err);
+        setIsPlayingAudio(false);
+      });
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
         setIsPlayingAudio(false);
         setIsMuted(false);
+        resetTranscript();
         isTranscribingRef.current = false;
-      });
+        audioRef.current = null;
+      };
+
+    } catch (ttsErr) {
+      console.error("TTS Synthesis failed:", ttsErr);
+      setIsPlayingAudio(false);
+    }
+  }
+})
   }, [transcript, resetTranscript, getSessionId]);
 
 
@@ -211,9 +219,7 @@ const Voice = ({ onClose }) => {
     }
   };
 
-  // Stop audio playback when closing the modal
   const handleClose = () => {
-    // Stop audio if playing
     if (audioRef.current) {
       console.log("Stopping audio playback");
       audioRef.current.pause();
@@ -227,7 +233,6 @@ const Voice = ({ onClose }) => {
     lastSentTranscriptRef.current = "";
     lastTranscriptRef.current = "";
     
-    // Clear any pending timeouts
     if (pauseTimeoutRef.current) {
       clearTimeout(pauseTimeoutRef.current);
       pauseTimeoutRef.current = null;
@@ -236,13 +241,11 @@ const Voice = ({ onClose }) => {
       clearTimeout(currentTimeoutRef.current);
       currentTimeoutRef.current = null;
     }
-    
-    // Stop speech recognition if active
+
     if (listening) {
       SpeechRecognition.stopListening();
     }
-    
-    // Call the original onClose callback
+
     onClose();
   };
 

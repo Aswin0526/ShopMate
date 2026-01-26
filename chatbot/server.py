@@ -15,8 +15,6 @@ import os
 from pydantic import BaseModel
 from google import genai
 from dotenv import load_dotenv
-from elevenlabs.client import ElevenLabs
-from elevenlabs.play import play
 import hashlib
 import time
 import uuid
@@ -117,11 +115,6 @@ def execute_and_clean(query_output):
     if "RESTRICTED_ACCESS" in raw_sql:
         return "I am not authorized to access sensitive user data."
     return execute_query_tool.invoke(raw_sql)
-
-
-client = ElevenLabs(
-    api_key=os.getenv("ELEVENLABS_API_KEY")
-)
 
 full_chain = (
     RunnablePassthrough.assign(input=lambda x: x["question"])
@@ -340,23 +333,6 @@ def sessions_status():
         }
     })
 
-def generate_audio(message):
-    """Generate audio from text message"""
-    try:
-        audio = client.text_to_speech.convert(
-            text=message,
-            voice_id="JBFqnCBsd6RMkjVDRZzb",
-            model_id="eleven_multilingual_v2",
-            output_format="mp3_44100_128",
-        )
-        
-        for chunk in audio:
-            if chunk:
-                yield chunk
-    except Exception as e:
-        print(f"Error generating audio: {e}")
-        yield b''
-
 def get_intent(user_text):
     """Classify user intent using sentence embeddings"""
     user_vec = model.encode(user_text, convert_to_tensor=True)
@@ -500,6 +476,7 @@ def data_query(question):
 class TranscriptRequest(BaseModel):
     text: str
 
+
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     """Main endpoint for processing user voice/text input"""
@@ -532,7 +509,6 @@ def transcribe():
 
     print(response_text)
     
-    # Print detailed chat sessions info
     print("\n" + "="*80)
     print("ACTIVE CHAT SESSIONS")
     print("="*80)
@@ -565,24 +541,12 @@ def transcribe():
     
     print(f"\nMemory Usage: ~{len(chat_sessions) * 50} KB (estimated)")
     print("="*80 + "\n")
+
+    print("final response", response_text)
+    return jsonify({
+        "text": response_text
+    })
     
-    try:
-        audio_response = Response(generate_audio(response_text), mimetype="audio/mpeg")
-        audio_response.headers["Content-Disposition"] = "inline; filename=audio.mp3"
-        audio_response.headers["Accept-Ranges"] = "bytes"
-        
-        return jsonify({
-            "text": response_text,
-            "intent": intent,
-            "audio_url": "/audio response"
-        })
-    except Exception as e:
-        print(f"Error generating audio: {e}")
-        return jsonify({
-            "text": response_text,
-            "intent": intent,
-            "error": "Audio generation failed"
-        })
 
 @app.route("/transcribe/status", methods=["GET"])
 def transcribe_status():
