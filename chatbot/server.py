@@ -4,7 +4,13 @@ from flask_cors import CORS
 import google.generativeai as genai
 from sqlalchemy import create_engine
 from langchain_community.utilities import SQLDatabase
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.chains import create_sql_query_chain
 from langchain_google_genai import GoogleGenerativeAI
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
 import os
 from pydantic import BaseModel
 from google import genai
@@ -16,6 +22,7 @@ import time
 import uuid
 from sentence_transformers import SentenceTransformer, util
 import torch
+import re
 from chatwithsql import full_chain as sql_chain
 
 model = SentenceTransformer('all-mpnet-base-v2')
@@ -57,8 +64,72 @@ intents = {
 
 load_dotenv()
 
+DATABASE_URL = f"postgresql+psycopg2://{os.getenv('user')}:{os.getenv('password')}@{os.getenv('host')}:{os.getenv('port')}/{os.getenv('dbname')}?sslmode=require"
+engine = create_engine(DATABASE_URL)
+
+restricted_tables = ["customers", "orders", "order_items", "owners", "refresh_tokens", "wishlist"]
+db = SQLDatabase(engine, sample_rows_in_table_info=0, ignore_tables=restricted_tables)
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-lite", 
+    google_api_key=os.getenv("GEMENI_API_KEY"),
+    temperature=0 
+)
+
+def clean_sql(query):
+    text = query if isinstance(query, str) else query.get("query", "")
+    return re.sub(r"```(?:sql|postgresql)?\s*([\s\S]*?)\s*```", r"\1", text).strip()
+
+execute_query_tool = QuerySQLDatabaseTool(db=db)
+
+rules_text = """1. ONLY use the tables listed in metadata.
+2. If a user asks for personal info (passwords, emails), DO NOT write SQL. Instead, respond with 'RESTRICTED_ACCESS'.
+3. NEVER guess table or column names.
+4. Keep the answer helpful but professional."""
+
+sql_system_rules = f"""You are a SQL expert. {rules_text}
+Only use these tables: {{table_info}}
+Limit your results to the top {{top_k}} unless specified otherwise.
+"""
+
+sql_prompt = ChatPromptTemplate.from_messages([
+    ("system", sql_system_rules),
+    ("human", "{input}") 
+])
+
+answer_prompt = PromptTemplate(
+    template="""You are a professional shop assistant. 
+Rules: {rules}
+
+Question: {question}
+SQL Query: {query}
+SQL Result: {result}
+Answer: """,
+    input_variables=["question", "query", "result"],
+    partial_variables={"rules": rules_text}
+)
+
+generate_query_chain = create_sql_query_chain(llm, db, prompt=sql_prompt)
+rephrase_answer_chain = answer_prompt | llm | StrOutputParser()
+
+def execute_and_clean(query_output):
+    raw_sql = clean_sql(query_output)
+    if "RESTRICTED_ACCESS" in raw_sql:
+        return "I am not authorized to access sensitive user data."
+    return execute_query_tool.invoke(raw_sql)
+
+
 client = ElevenLabs(
     api_key=os.getenv("ELEVENLABS_API_KEY")
+)
+
+full_chain = (
+    RunnablePassthrough.assign(input=lambda x: x["question"])
+    | RunnablePassthrough.assign(query=generate_query_chain) 
+    | RunnablePassthrough.assign(
+        result=lambda x: execute_and_clean(x["query"])
+    )
+    | rephrase_answer_chain
 )
 
 GEMENI_API_KEY = os.getenv("GEMENI_API_KEY")
@@ -182,7 +253,6 @@ def get_recent_history(chat_history, count=3):
     return chat_history[-count:] if len(chat_history) > count else chat_history
 
 def format_history_for_context(chat_history):
-    """Format chat history for inclusion in prompts"""
     recent_history = get_recent_history(chat_history)
     if not recent_history:
         return ""
@@ -201,21 +271,17 @@ def start_chat():
     print("in")
     data = request.get_json()
     
-    # Get session_id from header, query param, or body
     session_id = (request.headers.get('X-Session-ID') or 
                   request.args.get('session_id') or 
                   (data.get("session_id") if data else None))
     
-    # Create new session_id if not provided
     if not session_id:
         session_id = str(uuid.uuid4())
     
-    # Get or create session data
     session_data, returned_session_id = get_session_data(session_id)
     if session_data is None:
         session_data, returned_session_id = get_session_data()
     
-    # Store individual session variables
     form_data = data.get("formData", {})
     session_data["shopName"] = form_data.get("shopName")
     session_data["city"] = form_data.get("city")
@@ -223,11 +289,7 @@ def start_chat():
     session_data["country"] = form_data.get("country")
     session_data["productType"] = form_data.get("productType")
     session_data["shop_id"] = form_data.get("shopId")
-    
-    # Initialize empty chat history for this user session
     session_data["chat_history"] = []
-    
-    # Create a new chat instance for this user
     session_data["chat"] = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
     
     print(f"Session started for {session_data.get('shopName')} in {session_data.get('city')}")
@@ -317,7 +379,6 @@ def get_intent(user_text):
     return best_intent, highest_score
 
 def small_talk(question):
-    """Handle small talk queries with conversation context"""
     session_data, session_id = get_session_data()
     if session_data is None:
         return "Please start a chat session first by calling /start-chat"
@@ -329,18 +390,15 @@ def small_talk(question):
         chat = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
         session_data["chat"] = chat
     
-    # Get general instruction for context
     general_instruction = get_general_instruction(session_data)
     
-    # Format recent history for context
     context = format_history_for_context(chat_history)
     
-    # Build prompt with system instruction and context
     if context:
         prompt = f"{general_instruction}\n\n{context}\nUser: {question}\nAssistant:"
     else:
         prompt = f"{general_instruction}\n\nUser: {question}\nAssistant:"
-    
+    print("prompt",prompt)
     try:
         response = chat.send_message(prompt)
         message = response.text
@@ -358,25 +416,22 @@ def small_talk(question):
         return "I'm sorry, I encountered an error. Could you please try again?"
 
 def out_of_domain(question):
-    """Handle out-of-domain queries politely"""
     session_data, session_id = get_session_data()
     if session_data is None:
         return "Please start a chat session first by calling /start-chat"
     
     chat_history = session_data.get("chat_history", [])
+    print(chat_history)
     chat = session_data.get("chat")
     
     if not chat:
         chat = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
         session_data["chat"] = chat
     
-    # Get general instruction for context
     general_instruction = get_general_instruction(session_data)
-    
-    # Format recent history for context
+
     context = format_history_for_context(chat_history)
-    
-    # Polite redirect with shop context
+
     shopName = session_data.get("shopName", "our store")
     city = session_data.get("city", "")
     
@@ -384,17 +439,16 @@ def out_of_domain(question):
         redirect_prompt = f"{general_instruction}\n\n{context}\nUser: {question}\n\nAs a professional retail assistant for {shopName} in {city}, politely explain that you can only help with shop-related topics like:\n- Product availability and prices\n- Stock information and warranties\n- Product features and comparisons\n- Store policies and services\n\nThen invite them to ask about our products or services.\nAssistant:"
     else:
         redirect_prompt = f"{general_instruction}\n\nUser: {question}\n\nAs a professional retail assistant for {shopName} in {city}, politely explain that you can only help with shop-related topics like:\n- Product availability and prices\n- Stock information and warranties\n- Product features and comparisons\n- Store policies and services\n\nThen invite them to ask about our products or services.\nAssistant:"
-    
+    print("prompt",redirect_prompt)
     try:
         response = chat.send_message(redirect_prompt)
         message = response.text
-        
-        # Update chat history
-        session_data["chat_history"].append({
-            "role": "user",
-            "content": question,
-            "response": message
-        })
+
+        # session_data["chat_history"].append({
+        #     "role": "user",
+        #     "content": question,
+        #     "response": message
+        # })
         
         return message
     except Exception as e:
@@ -408,34 +462,29 @@ def data_query(question):
         return "Please start a chat session first by calling /start-chat"
     
     chat_history = session_data.get("chat_history", [])
-    
-    # Get session context
+
     shopName = session_data.get("shopName", "Unknown")
     city = session_data.get("city", "Unknown")
     state = session_data.get("state", "Unknown")
     country = session_data.get("country", "Unknown")
     productType = session_data.get("productType", "all products")
     shop_id = session_data.get("shop_id")
-    
-    # Get recent questions for context
+
     recent_history = get_recent_history(chat_history, 3)
     recent_questions = [item.get("content", "") for item in recent_history if item.get("role") == "user"]
-    
-    # Build enhanced question with context
+
     context_info = f"""Context for this query:
-- Shop: {shopName}
-- Shop ID: {shop_id if shop_id else 'Any'}
-- Location: {city}, {state}, {country}
-- Product Type: {productType}
-- Recent questions: {', '.join(recent_questions) if recent_questions else 'None'}
-- Current question: {question}"""
+        - Shop: {shopName}
+        - shopId: {shop_id}
+        - Location: {city}, {state}, {country}
+        - Product Type: {productType}
+        - Recent questions: {', '.join(recent_questions) if recent_questions else 'None'}
+        - Current question: {question}"""
 
     try:
-        # Use the SQL chain from chatwithsql.py
-        response = sql_chain.invoke({"question": context_info})
+        response = full_chain.invoke({"question": context_info})
         message = response
         
-        # Update chat history
         session_data["chat_history"].append({
             "role": "user",
             "content": question,
@@ -522,7 +571,6 @@ def transcribe():
         audio_response.headers["Content-Disposition"] = "inline; filename=audio.mp3"
         audio_response.headers["Accept-Ranges"] = "bytes"
         
-        # Return both text and audio
         return jsonify({
             "text": response_text,
             "intent": intent,
@@ -559,7 +607,6 @@ def clear_chat():
     session_data["chat_history"] = []
     session_data["chat"] = None
     
-    # Reinitialize chat object
     session_data["chat"] = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
     
     return jsonify({"message": "Chat history cleared and session reset"})

@@ -13,6 +13,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     shopName: '',
+    shopId: '',
     city: '',
     state: '',
     country: '',
@@ -79,7 +80,6 @@ function Chat({ custData, onClose, onVoiceOpen }) {
       }
     };
 
-    // Only fetch shops if we're on step 3 or have location data
     if (currentStep >= 2) {
       fetchShops();
     }
@@ -184,6 +184,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   const resetForm = () => {
     setFormData({
       shopName: '',
+      shopId: '',
       city: '',
       state: '',
       country: '',
@@ -282,7 +283,15 @@ function Chat({ custData, onClose, onVoiceOpen }) {
         <select
           className="chat-input chat-select"
           value={formData.shopName}
-          onChange={(e) => handleInputChange('shopName', e.target.value)}
+          onChange={(e) => {
+            const selectedShopName = e.target.value;
+            const selectedShop = shops.find(shop => shop.name === selectedShopName);
+            setFormData(prev => ({
+              ...prev,
+              shopName: selectedShopName,
+              shopId: selectedShop ? selectedShop.id : ''
+            }));
+          }}
           autoFocus
         >
           <option value="">Select Shop (Optional)</option>
