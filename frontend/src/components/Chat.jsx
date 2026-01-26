@@ -27,7 +27,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   const [countries, setCountries] = useState([]);
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  
   // Fetch all dropdown options on mount
   useEffect(() => {
     const fetchDropdownOptions = async () => {
@@ -68,7 +68,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
         if (formData.city && formData.city !== '') params.append('city', formData.city);
         if (formData.state && formData.state !== '') params.append('state', formData.state);
         if (formData.country && formData.country !== '') params.append('country', formData.country);
-        
+        if (formData.productType && formData.productType !== '') params.append('productType', formData.productType);
         const response = await fetch(`${backendUrl}/api/locations/shops?${params.toString()}`);
         const data = await response.json();
         

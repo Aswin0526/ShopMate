@@ -40,31 +40,53 @@ router.get('/countries', async (req, res) => {
 
 router.get('/shops', async (req, res) => {
   try {
-    const { city, state, country } = req.query;
+    const { city, state, country, productType } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
     
-    let query = 'SELECT shop_id, shop_name, shop_city, shop_state, shop_country FROM shops WHERE 1=1';
+    // Validate and sanitize parameters
+    const validFilters = ['city', 'state', 'country', 'productType'];
+    const filters = {};
+    
+    validFilters.forEach(key => {
+      const value = req.query[key];
+      if (value && value !== 'Any' && value.trim() !== '') {
+        filters[key] = value.trim();
+      }
+    });
+    
+    let query = `SELECT shop_id, shop_name, shop_city, shop_state, shop_country, type 
+                 FROM shops WHERE 1=1`;
     const params = [];
     let paramIndex = 1;
     
-    if (city && city !== 'Any' && city !== '') {
+    if (filters.city) {
       query += ` AND LOWER(shop_city) = LOWER($${paramIndex})`;
-      params.push(city);
+      params.push(filters.city);
       paramIndex++;
     }
     
-    if (state && state !== 'Any' && state !== '') {
+    if (filters.state) {
       query += ` AND LOWER(shop_state) = LOWER($${paramIndex})`;
-      params.push(state);
+      params.push(filters.state);
       paramIndex++;
     }
     
-    if (country && country !== 'Any' && country !== '') {
+    if (filters.country) {
       query += ` AND LOWER(shop_country) = LOWER($${paramIndex})`;
-      params.push(country);
+      params.push(filters.country);
       paramIndex++;
     }
-    
-    query += ' ORDER BY shop_name';
+
+    if (filters.productType) {
+      query += ` AND LOWER(type::text) = LOWER($${paramIndex})`;
+      params.push(filters.productType);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY shop_name LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
     
     const result = await db.query(query, params);
     const shops = result.rows.map(row => ({
@@ -72,10 +94,19 @@ router.get('/shops', async (req, res) => {
       name: row.shop_name,
       city: row.shop_city,
       state: row.shop_state,
-      country: row.shop_country
+      country: row.shop_country,
+      type: row.type
     }));
     
-    res.json({ success: true, data: shops });
+    res.json({ 
+      success: true, 
+      data: shops,
+      pagination: {
+        page,
+        limit,
+        total: shops.length
+      }
+    });
   } catch (error) {
     console.error('Error fetching shops:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch shops' });
