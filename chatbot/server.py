@@ -598,6 +598,11 @@ def cleanup_sessions():
         "remaining_sessions": len(chat_sessions)
     })
 
+@app.route("/", methods=["GET"])
+def health():
+    print("🔥 HIT /")
+    return "Flask is reachable", 200
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000, debug=False)
 

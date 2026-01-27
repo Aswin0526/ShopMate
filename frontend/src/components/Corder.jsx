@@ -5,19 +5,54 @@ import '../styles/COrder.css';
 function ImageSlider({ images }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const validImages = images?.filter(Boolean) || [];
+  const processImageSrc = (data) => {
+    if (!data) return null;
+
+    try {
+      let base64String = '';
+
+      if (data && data.type === 'Buffer' && Array.isArray(data.data)) {
+        const uint8 = new Uint8Array(data.data);
+        base64String = btoa(String.fromCharCode.apply(null, uint8));
+      }
+
+      else if (typeof data === 'string') {
+        let clean = data.trim().replace(/['"]+/g, '');
+
+        if (clean.includes('base64,ZGF0Y')) {
+          const encodedPart = clean.split('base64,')[1];
+          return processImageSrc(atob(encodedPart));
+        }
+
+        if (clean.startsWith('data:image')) return clean;
+        base64String = clean;
+      } else {
+        return null;
+      }
+
+      return base64String.startsWith('data:image')
+        ? base64String
+        : `data:image/jpeg;base64,${base64String}`;
+    } catch (e) {
+      console.error("Error processing image:", e);
+      return null;
+    }
+  };
+
+  const processedImages = images?.map(img => processImageSrc(img)).filter(Boolean) || [];
+  console.log("processed", processedImages);
 
   const goToPrev = () => {
-    setCurrentIndex(prev => (prev === 0 ? validImages.length - 1 : prev - 1));
+    setCurrentIndex(prev => (prev === 0 ? processedImages.length - 1 : prev - 1));
   };
 
   const goToNext = () => {
-    setCurrentIndex(prev => (prev === validImages.length - 1 ? 0 : prev + 1));
+    setCurrentIndex(prev => (prev === processedImages.length - 1 ? 0 : prev + 1));
   };
 
   const goToSlide = (index) => setCurrentIndex(index);
 
-  if (validImages.length === 0) {
+  if (processedImages.length === 0) {
     return (
       <div className="corder-image-slider">
         <div className="corder-slider-image active Corder-no-image">
@@ -29,10 +64,10 @@ function ImageSlider({ images }) {
 
   return (
     <div className="corder-image-slider">
-      {validImages.map((base64Image, index) => (
+      {processedImages.map((base64Image, index) => (
         <img
           key={index}
-          src={base64Image} 
+          src={base64Image}
           alt={`Product image ${index + 1}`}
           className={`corder-slider-image ${
             index === currentIndex ? "active" : ""
@@ -41,7 +76,7 @@ function ImageSlider({ images }) {
       ))}
 
 
-      {validImages.length > 1 && (
+      {processedImages.length > 1 && (
         <>
           <button
             className="corder-slider-arrow prev"
@@ -63,7 +98,7 @@ function ImageSlider({ images }) {
           </button>
 
           <div className="corder-slider-dots">
-            {validImages.map((_, index) => (
+            {processedImages.map((_, index) => (
               <button
                 key={index}
                 className={`corder-slider-dot ${index === currentIndex ? 'active' : ''}`}
@@ -75,9 +110,9 @@ function ImageSlider({ images }) {
         </>
       )}
 
-      {validImages.length > 0 && (
+      {processedImages.length > 0 && (
         <div className="corder-image-counter">
-          {currentIndex + 1} / {validImages.length}
+          {currentIndex + 1} / {processedImages.length}
         </div>
       )}
     </div>

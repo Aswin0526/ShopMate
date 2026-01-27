@@ -510,7 +510,7 @@ const getWishList = async (req, res) => {
 
       const toBase64Image = (buffer, mime = "image/png") => {
         if (!buffer) return null;
-        return `data:${mime};base64,${buffer.toString("base64")}`;
+        return `data:image/jpeg;base64,${buffer.toString("base64")}`;
       };
 
       const row = productResult.rows[0];
