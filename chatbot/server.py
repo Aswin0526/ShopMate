@@ -43,6 +43,10 @@ intents = {
         "Price list for groceries", "Tell me the cost of this shirt",
         "How much for 10 units of eggs?", "What is the total price?",
 
+        "List all shops", "show me shops", "find stores", "available branches",
+        "list of categories", "what types of products", "show all tables", 
+        "list departments", "store locations", "show me all the outlets",
+
         "Where is this kept?", "Find the ID of this product", "Do you have warranty for this product", "model number of the product",
         "Which aisle is the grocery in?", "Product code for the electronics",
 
@@ -83,7 +87,19 @@ execute_query_tool = QuerySQLDatabaseTool(db=db)
 rules_text = """1. ONLY use the tables listed in metadata.
 2. If a user asks for personal info (passwords, emails), DO NOT write SQL. Instead, respond with 'RESTRICTED_ACCESS'.
 3. NEVER guess table or column names.
-4. Keep the answer helpful but professional."""
+4. Keep the answer helpful but professional.
+5. If the current question has enough data to process then go with it otherwise refer recent_history and answer
+
+STRICT SCOPE RULES:
+1. DEFAULT BEHAVIOR: Always filter your queries based on the assigned Shop, City, State, and Country provided above.
+2. THE 'ANY' or "ALL" RULE: 
+   - If Shop is 'Any' or 'all', you may query any shop within the assigned City.
+   - If City is 'Any' or 'all', you may query any city within the assigned State.
+   - If State is 'Any' or 'all', you may query any state within the assigned Country.
+3. USER OVERRIDE: If the user explicitly mentions a DIFFERENT shop, city, or state in their question (e.g., "Check the branch in Madurai instead"), you are authorized to ignore the default scope and query the specific location requested by the user.
+4. Keep your responses concise, helpful, and professional.
+5. Do not mention the shop name or location if it is not the "ANY" OR "ALL" rule
+"""
 
 sql_system_rules = f"""You are a SQL expert. {rules_text}
 Only use these tables: {{table_info}}
@@ -98,13 +114,12 @@ sql_prompt = ChatPromptTemplate.from_messages([
 answer_prompt = PromptTemplate(
     template="""You are a professional shop assistant. 
 Rules: {rules}
-
 Question: {question}
 SQL Query: {query}
 SQL Result: {result}
 Answer: """,
     input_variables=["question", "query", "result"],
-    partial_variables={"rules": rules_text}
+    partial_variables={"rules": sql_system_rules}
 )
 
 generate_query_chain = create_sql_query_chain(llm, db, prompt=sql_prompt)
@@ -112,6 +127,7 @@ rephrase_answer_chain = answer_prompt | llm | StrOutputParser()
 
 def execute_and_clean(query_output):
     raw_sql = clean_sql(query_output)
+    print(raw_sql)
     if "RESTRICTED_ACCESS" in raw_sql:
         return "I am not authorized to access sensitive user data."
     return execute_query_tool.invoke(raw_sql)
@@ -168,7 +184,6 @@ def is_rate_limited(text):
     return False
 
 def cleanup_old_sessions():
-    """Remove sessions inactive for more than SESSION_TIMEOUT"""
     current_time = time.time()
     sessions_to_remove = []
     
@@ -229,17 +244,7 @@ def get_general_instruction(session_data=None):
     
     return f"""You are a professional retail assistant for ShopMate.
 Your primary assignment is for the shop '{shopName}' located in {city}, {state}, {country}.
-This shop specializes in {productType}.
-
-STRICT SCOPE RULES:
-1. DEFAULT BEHAVIOR: Always filter your queries based on the assigned Shop, City, State, and Country provided above.
-2. THE 'ANY' RULE: 
-   - If Shop is 'Any', you may query any shop within the assigned City.
-   - If City is 'Any', you may query any city within the assigned State.
-   - If State is 'Any', you may query any state within the assigned Country.
-3. USER OVERRIDE: If the user explicitly mentions a DIFFERENT shop, city, or state in their question (e.g., "Check the branch in Madurai instead"), you are authorized to ignore the default scope and query the specific location requested by the user.
-4. Keep your responses concise, helpful, and professional.
-"""
+This shop specializes in {productType}. """
 
 def get_recent_history(chat_history, count=3):
     """Get recent chat history messages"""
@@ -449,16 +454,19 @@ def data_query(question):
     recent_history = get_recent_history(chat_history, 3)
     recent_questions = [item.get("content", "") for item in recent_history if item.get("role") == "user"]
 
-    context_info = f"""Context for this query:
-        - Shop: {shopName}
-        - shopId: {shop_id}
-        - Location: {city}, {state}, {country}
-        - Product Type: {productType}
-        - Recent questions: {', '.join(recent_questions) if recent_questions else 'None'}
-        - Current question: {question}"""
+    chain_input = {
+    "question": question, # This maps to {question} or {input}
+    "shopName": shopName,
+    "city": city,
+    "state": state,
+    "country": country,
+    "productType": productType,
+    "shop_id": shop_id,
+    "recent history": recent_questions
+    }
 
     try:
-        response = full_chain.invoke({"question": context_info})
+        response = full_chain.invoke(chain_input)
         message = response
         
         session_data["chat_history"].append({
