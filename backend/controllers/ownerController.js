@@ -2047,6 +2047,254 @@ const updateShopProfile = async (req, res) => {
   }
 };
 
+const bufferToBase64 = (buffer) => {
+  if (!buffer) return null;
+  return `data:${buffer.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
+};
+
+const addProductDirection = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const {
+      shop_id,
+      product_id,
+      directions
+    } = req.body;
+
+    if (!shop_id || !product_id || !directions) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID, product ID, and directions are required",
+      });
+    }
+
+    await client.query("BEGIN");
+
+    // Convert base64 images to buffers
+    const image1 = directions.image1 ? base64ToBuffer(directions.image1) : null;
+    const image2 = directions.image2 ? base64ToBuffer(directions.image2) : null;
+    const image3 = directions.image3 ? base64ToBuffer(directions.image3) : null;
+    const image4 = directions.image4 ? base64ToBuffer(directions.image4) : null;
+    const image5 = directions.image5 ? base64ToBuffer(directions.image5) : null;
+
+    // Check if record exists
+    const existingRecord = await client.query(
+      `SELECT id FROM product_directions WHERE shop_id = $1 AND product_id = $2`,
+      [shop_id, product_id]
+    );
+
+    let result;
+    if (existingRecord.rows.length > 0) {
+      // Update existing record
+      result = await client.query(
+        `UPDATE product_directions 
+         SET image1 = $1, direction1 = $2,
+             image2 = $3, direction2 = $4,
+             image3 = $5, direction3 = $6,
+             image4 = $7, direction4 = $8,
+             image5 = $9, direction5 = $10,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE shop_id = $11 AND product_id = $12
+         RETURNING *`,
+        [
+          image1, directions.direction1,
+          image2, directions.direction2,
+          image3, directions.direction3,
+          image4, directions.direction4,
+          image5, directions.direction5,
+          shop_id, product_id
+        ]
+      );
+    } else {
+      // Insert new record
+      result = await client.query(
+        `INSERT INTO product_directions 
+         (shop_id, product_id, image1, direction1, image2, direction2, image3, direction3, image4, direction4, image5, direction5)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING *`,
+        [
+          shop_id, product_id,
+          image1, directions.direction1,
+          image2, directions.direction2,
+          image3, directions.direction3,
+          image4, directions.direction4,
+          image5, directions.direction5
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    res.status(200).json({
+      success: true,
+      message: existingRecord.rows.length > 0 
+        ? "Product directions updated successfully" 
+        : "Product directions added successfully",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Add product direction error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  } finally {
+    client.release();
+  }
+};
+
+const getProductDirection = async (req, res) => {
+  try {
+    const { shop_id, product_id } = req.body;
+
+    if (!shop_id || !product_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID and product ID are required",
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM product_directions WHERE shop_id = $1 AND product_id = $2`,
+      [shop_id, product_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Product directions not found",
+      });
+    }
+
+    const direction = result.rows[0];
+    
+    // Convert images to base64
+    const directionData = {
+      product_id: direction.product_id,
+      image1: bufferToBase64(direction.image1),
+      direction1: direction.direction1,
+      image2: bufferToBase64(direction.image2),
+      direction2: direction.direction2,
+      image3: bufferToBase64(direction.image3),
+      direction3: direction.direction3,
+      image4: bufferToBase64(direction.image4),
+      direction4: direction.direction4,
+      image5: bufferToBase64(direction.image5),
+      direction5: direction.direction5,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: directionData,
+    });
+  } catch (error) {
+    console.error("Get product direction error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const getProductsWithDirections = async (req, res) => {
+  try {
+    const { shop_id, table_name } = req.body;
+
+    if (!shop_id || !table_name) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID and table name are required",
+      });
+    }
+
+    const columnsResult = await pool.query(
+      `SELECT column_name, data_type 
+       FROM information_schema.columns 
+       WHERE table_name = $1 
+       ORDER BY ordinal_position`,
+      [table_name]
+    );
+
+    if (columnsResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Product table not found",
+      });
+    }
+
+    const productsResult = await pool.query(
+      `SELECT * FROM ${table_name} ORDER BY created_at DESC`
+    );
+
+    const directionsResult = await pool.query(
+      `SELECT * FROM product_directions WHERE shop_id = $1`,
+      [shop_id]
+    );
+
+    const directionsMap = {};
+    directionsResult.rows.forEach((row) => {
+      directionsMap[row.product_id] = {
+        image1: bufferToBase64(row.image1),
+        direction1: row.direction1,
+        image2: bufferToBase64(row.image2),
+        direction2: row.direction2,
+        image3: bufferToBase64(row.image3),
+        direction3: row.direction3,
+        image4: bufferToBase64(row.image4),
+        direction4: row.direction4,
+        image5: bufferToBase64(row.image5),
+        direction5: row.direction5,
+      };
+    });
+
+    const products = productsResult.rows.map((product) => {
+      const productCopy = { ...product };
+
+      // Convert product images to base64
+      for (let i = 1; i <= 5; i++) {
+        const imgKey = `image${i}`;
+        if (productCopy[imgKey]) {
+          try {
+            const buffer = Buffer.isBuffer(productCopy[imgKey])
+              ? productCopy[imgKey]
+              : Buffer.from(productCopy[imgKey], "binary");
+            productCopy[imgKey] = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+          } catch (e) {
+            productCopy[imgKey] = null;
+          }
+        }
+      }
+
+      // Determine the product ID column (id or cosmetics_id)
+      const productId = product.id || product.cosmetics_id;
+
+      // Add directions to the product
+      productCopy.directions = directionsMap[productId] || null;
+
+      return productCopy;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        products,
+        columns: columnsResult.rows,
+      },
+    });
+  } catch (error) {
+    console.error("Get products with directions error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   registerOwner,
   registerOwnerBasic,
@@ -2069,4 +2317,7 @@ module.exports = {
   markOrderDoneAndDelete,
   updateOwnerProfile,
   updateShopProfile,
+  getProductsWithDirections,
+  addProductDirection,
+  getProductDirection
 };

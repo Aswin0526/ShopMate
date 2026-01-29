@@ -23,6 +23,9 @@ const {
   markOrderDoneAndDelete,
   updateOwnerProfile,
   updateShopProfile,
+  getProductsWithDirections,
+  addProductDirection,
+  getProductDirection
 } = require("../controllers/ownerController");
 const { verifyToken, isOwner, isCustomer } = require("../middleware/auth");
 
@@ -60,4 +63,10 @@ router.post("/getOrders", verifyToken, isOwner, getOrders);
 router.post("/approve", verifyToken, isOwner, approveOrder);
 router.post("/markDone", verifyToken, isOwner, markOrderDoneAndDelete);
 
+// Product directions routes
+router.post("/getProductsWithDirections", verifyToken, isOwner, getProductsWithDirections);
+router.post("/add-product-direction", verifyToken, isOwner, addProductDirection);
+router.post("/get-product-direction", verifyToken, isOwner, getProductDirection);
+
 module.exports = router;
+

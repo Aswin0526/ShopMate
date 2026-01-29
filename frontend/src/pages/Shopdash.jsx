@@ -4,6 +4,7 @@ import Overview from '../components/Overview';
 import Update from '../components/Update';
 import Stock from '../components/Stock';
 import Preorder from '../components/Preorder';
+import Map from '../components/Map';
 
 const Shopdash = () => {
   const [shopData, setShopData] = useState(null);
@@ -196,6 +197,7 @@ const Shopdash = () => {
       {activeTab === 'update' && <Update Data = {shopData} logo = {logo} shopImages = {shopImages} />}
       {activeTab === 'stock' && <Stock Data = {shopData} />}
       {activeTab === 'preorder' && <Preorder Data = {shopData} />}
+      {activeTab === 'map' && <Map Data = {shopData} />}
     </div>
   );
 };

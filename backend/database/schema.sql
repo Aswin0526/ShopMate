@@ -93,3 +93,31 @@ CREATE TABLE IF NOT EXISTS wishlists (
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
     UNIQUE (customer_id, product_id)
 );
+
+-- Product Directions Table (stores directions with images for each product)
+CREATE TABLE IF NOT EXISTS product_directions (
+    id BIGSERIAL PRIMARY KEY,
+    shop_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    image1 BYTEA,
+    direction1 VARCHAR(500),
+    image2 BYTEA,
+    direction2 VARCHAR(500),
+    image3 BYTEA,
+    direction3 VARCHAR(500),
+    image4 BYTEA,
+    direction4 VARCHAR(500),
+    image5 BYTEA,
+    direction5 VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_product_direction_shop
+        FOREIGN KEY (shop_id)
+        REFERENCES shops(shop_id)
+        ON DELETE CASCADE,
+    UNIQUE(shop_id, product_id)
+);
+
+-- Index for product_directions
+CREATE INDEX IF NOT EXISTS idx_product_directions_shop ON product_directions(shop_id);
+CREATE INDEX IF NOT EXISTS idx_product_directions_product ON product_directions(product_id);

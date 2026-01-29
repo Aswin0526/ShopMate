@@ -1,0 +1,14 @@
+flask
+flask-cors
+python-dotenv
+google-generativeai
+google-genai
+langchain
+langchain-community
+langchain-core
+langchain-google-genai
+sqlalchemy
+pydantic
+sentence-transformers
+torch
+regex

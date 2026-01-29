@@ -916,6 +916,8 @@ const updateCustomerProfile = async (req, res) => {
   }
 };
 
+// Helper function to convert buffer to base64
+
 module.exports = {
   registerCustomer,
   loginCustomer,
