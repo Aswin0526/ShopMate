@@ -60,7 +60,5 @@ router.post("/getOrders", verifyToken, isOwner, getOrders);
 router.post("/approve", verifyToken, isOwner, approveOrder);
 router.post("/markDone", verifyToken, isOwner, markOrderDoneAndDelete);
 
-// Product directions routes
-
 module.exports = router;
 

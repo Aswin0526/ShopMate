@@ -194,6 +194,51 @@
   background: rgba(255, 82, 82, 0.5);
 }
 
+/* Stop & Listen Button */
+.voice-stop-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #ff5252, #d32f2f);
+  border: none;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(255, 82, 82, 0.4);
+  transition: all 0.3s ease;
+  animation: voiceStopButtonPulse 2s ease-in-out infinite;
+}
+
+@keyframes voiceStopButtonPulse {
+  0%, 100% {
+    box-shadow: 0 6px 24px rgba(255, 82, 82, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 32px rgba(255, 82, 82, 0.6);
+  }
+}
+
+.voice-stop-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 32px rgba(255, 82, 82, 0.5);
+}
+
+.voice-stop-button:active {
+  transform: scale(0.98);
+}
+
+.voice-stop-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.voice-stop-text {
+  letter-spacing: 0.5px;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .voice-modal {

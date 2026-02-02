@@ -219,6 +219,43 @@ fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
     }
   };
 
+  const stopAndListen = () => {
+    // Stop audio playback
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    // Reset audio playing state
+    setIsPlayingAudio(false);
+    setIsMuted(false);
+
+    // Reset transcription flags
+    isTranscribingRef.current = false;
+    lastSentTranscriptRef.current = "";
+
+    // Clear any pending timeouts
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
+    if (currentTimeoutRef.current) {
+      clearTimeout(currentTimeoutRef.current);
+      currentTimeoutRef.current = null;
+    }
+
+    // Reset transcript
+    resetTranscript();
+    lastTranscriptRef.current = "";
+    setInterimTranscript("");
+
+    // Start listening again
+    SpeechRecognition.startListening({
+      continuous: true,
+      language: "en-IN"
+    });
+  };
+
   const handleClose = () => {
     if (audioRef.current) {
       console.log("Stopping audio playback");
@@ -291,6 +328,23 @@ fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
           </button>
 
           <p className="voice-status">{status}</p>
+
+          {isPlayingAudio && (
+            <button
+              className="voice-stop-button"
+              onClick={stopAndListen}
+              title="Stop and listen again"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="voice-stop-icon"
+              >
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+              <span className="voice-stop-text">Stop & Listen</span>
+            </button>
+          )}
 
           {(transcript || interimTranscript) && (
             <div className="voice-transcript-container">

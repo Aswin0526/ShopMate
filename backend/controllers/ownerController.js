@@ -2056,13 +2056,6 @@ const bufferToBase64 = (buffer) => {
   return `data:${buffer.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
 };
 
-// const addProductDirection = async (req, res) => {
-  
-// };
-
-// const getProductDirection = async (req, res) => {
-  
-// };
 
 
 module.exports = {

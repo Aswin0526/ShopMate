@@ -1,19 +1,16 @@
 from flask import Flask, session, request, jsonify, Response
 from datetime import timedelta, datetime
 from flask_cors import CORS
-import google.generativeai as genai
+import os
 from sqlalchemy import create_engine
 from langchain_community.utilities import SQLDatabase
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.llms import Ollama
 from langchain.chains import create_sql_query_chain
-from langchain_google_genai import GoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
-import os
 from pydantic import BaseModel
-from google import genai
 from dotenv import load_dotenv
 import hashlib
 import time
@@ -73,11 +70,7 @@ engine = create_engine(DATABASE_URL)
 restricted_tables = ["customers", "orders", "order_items", "owners", "refresh_tokens", "wishlist"]
 db = SQLDatabase(engine, sample_rows_in_table_info=0, ignore_tables=restricted_tables)
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash-lite", 
-    google_api_key=os.getenv("GEMENI_API_KEY"),
-    temperature=0 
-)
+llm = Ollama(model="gemma3:4b", temperature=0)  # Using Ollama instead of Google Generative AI
 
 def clean_sql(query):
     text = query if isinstance(query, str) else query.get("query", "")
@@ -90,67 +83,34 @@ rules_text = """1. ONLY use the tables listed in metadata.
 3. NEVER guess table or column names.
 4. Keep the answer helpful but professional.
 5. If the current question has enough data to process then go with it otherwise refer recent_history and answer
+
+
+STRICT SCOPE RULES:
+1. DEFAULT BEHAVIOR: Always filter your queries based on the assigned Shop, City, State, and Country provided above.
+2. THE 'ANY' or "ALL" RULE: 
+   - If Shop is 'Any' or 'all', you may query any shop within the assigned City.
+   - If City is 'Any' or 'all', you may query any city within the assigned State.
+   - If State is 'Any' or 'all', you may query any state within the assigned Country.
+3. USER OVERRIDE: If the user explicitly mentions a DIFFERENT shop, city, or state in their question (e.g., "Check the branch in Madurai instead"), you are authorized to ignore the default scope and query the specific location requested by the user.
+4. Keep your responses concise, helpful, and professional.
+5. Do not mention the shop name or location if it is not the "ANY" OR "ALL" rule
 """
 
-sql_system_rules = f"""
-You are a SQL expert that translates natural language into PostgreSQL queries.
+sql_system_rules = f"""You are a SQL expert that translates natural language to PostgreSQL.
 
-### MANDATORY RULES — DO NOT DISOBEY:
-1. NO EQUALS FOR STRINGS:
-   - NEVER use '=' for text columns.
-   - ALWAYS use: lower(column) LIKE lower('%value%')
-   - BAD:  WHERE brand = 'LG'
-   - GOOD: WHERE lower(brand) LIKE lower('%lg%')
+### MANDATORY RULES - DO NOT DISOBEY:
+1. **NO EQUALS FOR STRINGS**: NEVER use the `=` operator for text columns. You MUST use the `LIKE` operator with lower() and wildcards.
+   - BAD: WHERE brand = 'LG'
+   - GOOD: WHERE lower(brand) LIKE lower('%LG%')
+2. **EXACT TABLES ONLY**: Only use table names from this list: {{table_info}}. 
+   - If a table is not in that list, DO NOT CREATE ONE. 
+   - Never combine words like 'electronics' and 'shop' into a new table name.
+3. **SECURITY**: If the query touches 'refresh_tokens' or 'passwords', return 'RESTRICTED_ACCESS'.
+4. **TOP_K**: Always use LIMIT {{top_k}} unless the user asks for a specific number.
 
-2. EXACT TABLE ONLY:
-   - Use ONLY the provided tablename.
-   - Do NOT infer or invent table names.
-
-3. SECURITY:
-   - If the query touches 'refresh_tokens' or 'passwords',
-     return exactly: RESTRICTED_ACCESS
-
-4. TOP_K:
-   - ALWAYS apply: LIMIT {{top_k}}
-   - Unless the user explicitly asks for a specific number.
-
-### STRICT SCOPE RULES:
-1. DEFAULT SCOPE:
-   - Always filter results by the assigned:
-     Shop, City, State, and Country.
-
-2. ANY / ALL RULE:
-   - If Shop is 'ANY' or 'ALL':
-     → Query all shops within the assigned City.
-   - If City is 'ANY' or 'ALL':
-     → Query all cities within the assigned State.
-   - If State is 'ANY' or 'ALL':
-     → Query all states within the assigned Country.
-
-3. USER OVERRIDE:
-   - If the user explicitly mentions a different shop, city, or state
-     (e.g., "Check the Madurai branch"),
-     you MUST ignore the default scope
-     and query ONLY the user-specified location.
-
-4. UNION LOGIC:
-   - When ANY or ALL applies, derive the valid shops/cities/states
-     from {{table_info}} and query their union implicitly
-     using appropriate WHERE conditions.
-   - Do NOT fabricate locations.
-
-5. RESPONSE STYLE:
-   - Keep queries concise, correct, and professional.
-   - Do NOT mention shop or location in the output
-     unless required by the ANY / ALL rule.
-
-### OUTPUT FORMAT:
-- Return ONLY raw SQL.
-- No markdown.
-- No backticks.
-- No explanations.
+### FORMATTING:
+Return ONLY the raw SQL code. No markdown, no backticks, no explanations.
 """
-
 
 sql_prompt = ChatPromptTemplate.from_messages([
     ("system", sql_system_rules),
@@ -162,15 +122,17 @@ answer_prompt = PromptTemplate(
 
     - DO NOT use tables, bars (|), or asterisks (*) in your final response.
     - Use full sentences and natural language. 
-    - (Example: Instead of "ID: 5 | Name: Shirt", say "We have a Shirt available.")
+    - (Example: Instead of "ID: 5 | Name: Shirt", say "We have a Shirt available, and its ID is 5.")
     - If the result is empty, politely inform the user that no records were found.
-    - Do not mention technical terms like "SQL" or "Database".
+    - Do not mention technical terms like "SQL" or "Database" "server".
 
+Rules: {rules}
 Question: {question}
 SQL Query: {query}
 SQL Result: {result}
 Answer: """,
     input_variables=["question", "query", "result"],
+    partial_variables={"rules": sql_system_rules}
 )
 
 generate_query_chain = create_sql_query_chain(llm, db, prompt=sql_prompt)
@@ -192,14 +154,12 @@ full_chain = (
     | rephrase_answer_chain
 )
 
-GEMENI_API_KEY = os.getenv("GEMENI_API_KEY")
-
 app = Flask(__name__)
 
 CORS(
     app,
     supports_credentials=True,
-    origins=["*"]  # Allow all origins for frontend to manage session
+    origins=["*"] 
 )
 
 app.secret_key = "shopmate123"
@@ -263,10 +223,9 @@ def get_session_data(session_id=None):
             cleanup_old_sessions()
     
     if session_id not in chat_sessions:
-        # Create new session with client and chat objects
+        # Create new session with Ollama LLM (no persistent chat like Google AI)
         chat_sessions[session_id] = {
-            "client": genai.Client(api_key=GEMENI_API_KEY),
-            "chat": None,
+            "llm": Ollama(model="llama2", temperature=0),
             "chat_history": [],
             "shopName": None,
             "city": None,
@@ -339,7 +298,6 @@ def start_chat():
     session_data["productType"] = form_data.get("productType")
     session_data["shop_id"] = form_data.get("shopId")
     session_data["chat_history"] = []
-    session_data["chat"] = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
     
     print(f"Session started for {session_data.get('shopName')} in {session_data.get('city')}")
     print(f"Session ID: {returned_session_id}")
@@ -416,11 +374,7 @@ def small_talk(question):
         return "Please start a chat session first by calling /start-chat"
     
     chat_history = session_data.get("chat_history", [])
-    chat = session_data.get("chat")
-    
-    if not chat:
-        chat = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
-        session_data["chat"] = chat
+    llm_instance = session_data.get("llm")
     
     general_instruction = get_general_instruction(session_data)
     
@@ -430,10 +384,10 @@ def small_talk(question):
         prompt = f"{general_instruction}\n\n{context}\nUser: {question}\nAssistant:"
     else:
         prompt = f"{general_instruction}\n\nUser: {question}\nAssistant:"
-    print("prompt",prompt)
+    print("prompt", prompt)
     try:
-        response = chat.send_message(prompt)
-        message = response.text
+        response = llm_instance(prompt)
+        message = response
         
         # Update chat history
         session_data["chat_history"].append({
@@ -453,12 +407,7 @@ def out_of_domain(question):
         return "Please start a chat session first by calling /start-chat"
     
     chat_history = session_data.get("chat_history", [])
-    print(chat_history)
-    chat = session_data.get("chat")
-    
-    if not chat:
-        chat = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
-        session_data["chat"] = chat
+    llm_instance = session_data.get("llm")
     
     general_instruction = get_general_instruction(session_data)
 
@@ -471,17 +420,11 @@ def out_of_domain(question):
         redirect_prompt = f"{general_instruction}\n\n{context}\nUser: {question}\n\nAs a professional retail assistant for {shopName} in {city}, politely explain that you can only help with shop-related topics like:\n- Product availability and prices\n- Stock information and warranties\n- Product features and comparisons\n- Store policies and services\n\nThen invite them to ask about our products or services.\nAssistant:"
     else:
         redirect_prompt = f"{general_instruction}\n\nUser: {question}\n\nAs a professional retail assistant for {shopName} in {city}, politely explain that you can only help with shop-related topics like:\n- Product availability and prices\n- Stock information and warranties\n- Product features and comparisons\n- Store policies and services\n\nThen invite them to ask about our products or services.\nAssistant:"
-    print("prompt",redirect_prompt)
+    print("prompt", redirect_prompt)
     try:
-        response = chat.send_message(redirect_prompt)
-        message = response.text
+        response = llm_instance(redirect_prompt)
+        message = response
 
-        # session_data["chat_history"].append({
-        #     "role": "user",
-        #     "content": question,
-        #     "response": message
-        # })
-        
         return message
     except Exception as e:
         print(f"Error in out_of_domain: {e}")
@@ -507,15 +450,13 @@ def data_query(question):
 
     chain_input = {
     "question": question, # This maps to {question} or {input}
-    "tablename": f"{productType}_{shop_id}_{shopName.lower()}",
     "shopName": shopName,
     "city": city,
     "state": state,
     "country": country,
     "productType": productType,
     "shop_id": shop_id,
-    "recent history": recent_questions,
-    "sql_system_rule": sql_system_rules
+    "recent history": recent_questions
     }
 
     try:
@@ -585,8 +526,7 @@ def transcribe():
         print(f"  Shop ID: {data.get('shop_id', 'N/A')}")
         print(f"  Chat History Count: {len(data.get('chat_history', []))}")
         print(f"  Last Active: {datetime.fromtimestamp(data.get('last_active', 0)).strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  Chat Object: {'Active' if data.get('chat') else 'None'}")
-        print(f"  Client Object: {'Active' if data.get('client') else 'None'}")
+        print(f"  LLM Object: {'Active' if data.get('llm') else 'None'}")
         
         # Print recent chat history
         chat_history = data.get("chat_history", [])
@@ -596,8 +536,8 @@ def transcribe():
                 role = msg.get("role", "unknown")
                 content = msg.get("content", "")[:100]  # First 100 chars
                 response = msg.get("response", "")[:100] if msg.get("response") else "No response"
-                print(f"{i}. [{role}] Q: {content}...")
-                print(f"A: {response}...")
+                print(f"    {i}. [{role}] Q: {content}...")
+                print(f"       A: {response}...")
         
         print("-"*80)
     
@@ -631,9 +571,6 @@ def clear_chat():
         return jsonify({"error": "No session found"})
     
     session_data["chat_history"] = []
-    session_data["chat"] = None
-    
-    session_data["chat"] = session_data["client"].chats.create(model="gemini-2.5-flash-lite")
     
     return jsonify({"message": "Chat history cleared and session reset"})
 
@@ -667,4 +604,3 @@ def health():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=3000, debug=False)
-

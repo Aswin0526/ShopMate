@@ -51,6 +51,13 @@ Rules: {rules}
 Question: {question}
 SQL Query: {query}
 SQL Result: {result}
+
+IMPORTANT INSTRUCTIONS:
+1. If the SQL Result is empty, null, or shows no records found, you MUST respond that no matching products were found.
+2. NEVER make up or invent product data that doesn't exist in the SQL Result.
+3. Only provide information that is actually present in the SQL Result.
+4. If no results are found, suggest alternative searches or ask for clarification.
+
 Answer: """,
     input_variables=["question", "query", "result"],
     partial_variables={"rules": rules_text}
