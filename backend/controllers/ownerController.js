@@ -76,7 +76,7 @@ const createProductTable = async (shopType, shopId, shopName) => {
     case "cosmetics":
       createTableSQL = `
         CREATE TABLE IF NOT EXISTS ${tableName} (
-          cosmetics_id SERIAL PRIMARY KEY,
+          id SERIAL PRIMARY KEY,
           product_name TEXT NOT NULL,
           brand TEXT,
           description TEXT,

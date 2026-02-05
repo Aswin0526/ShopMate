@@ -22,12 +22,14 @@ function ShopDetail() {
   const [itemsPerPage] = useState(10);
 
   const [wishlist, setWishlist] = useState(new Set());
+  const [wishlistLoading, setWishlistLoading] = useState({});
+  const [notification, setNotification] = useState(null);
 
   const [userRating, setUserRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [userFeedback, setUserFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  
   const handleStarClick = (rating) => {
     setUserRating(rating);
     console.log('Star clicked - Rating:', rating);
@@ -68,16 +70,60 @@ function ShopDetail() {
     setUserFeedback('');
   };
 
-  const handleAddToWishlist = async (product) => {
-    const productId = product.id;
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
-    setWishlist(new Set([productId]));
-
+  const fetchWishlist = async () => {
+    if (!custId) return;
+    
     try {
-      console.log("inside handlewishlist");
-            const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL}/api/customers/addWishList`,
-                {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/customers/getWishList`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ cust_id: custId }),
+        }
+      );
+      const data = await response.json();
+      if (data.success && data.data) {
+        const wishlistIds = new Set(data.data.map(item => item.productId));
+        setWishlist(wishlistIds);
+      }
+    } catch (err) {
+      console.error("Error fetching wishlist:", err);
+    }
+  };
+
+  const handleToggleWishlist = async (product) => {
+    const productId = product.id;
+    console.log(productId);
+    const isInWishlist = wishlist.has(productId);
+    
+    // Set loading state
+    setWishlistLoading(prev => ({ ...prev, [productId]: true }));
+    
+    // Optimistically update UI
+    if (isInWishlist) {
+      setWishlist(prev => {
+        const newWishlist = new Set(prev);
+        newWishlist.delete(productId);
+        return newWishlist;
+      });
+    } else {
+      setWishlist(prev => new Set([...prev, productId]));
+    }
+    
+    try {
+      const endpoint = isInWishlist ? '/api/customers/removeWishList' : '/api/customers/addWishList';
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}${endpoint}`,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -90,20 +136,47 @@ function ShopDetail() {
           }),
         }
       );
+      
       const data = await response.json();
-      if (!data.success) {
-        setError(data.message || "Failed to add product to wishlist");
+      if (data.success) {
+        showNotification(
+          isInWishlist ? 'Removed from wishlist' : 'Added to wishlist',
+          'success'
+        );
+      } else {
+        // Revert on failure
+        if (isInWishlist) {
+          setWishlist(prev => new Set([...prev, productId]));
+        } else {
+          setWishlist(prev => {
+            const newWishlist = new Set(prev);
+            newWishlist.delete(productId);
+            return newWishlist;
+          });
+        }
+        showNotification(data.message || 'Failed to update wishlist', 'error');
       }
     } catch (err) {
+      // Revert on error
+      if (isInWishlist) {
+        setWishlist(prev => new Set([...prev, productId]));
+      } else {
+        setWishlist(prev => {
+          const newWishlist = new Set(prev);
+          newWishlist.delete(productId);
+          return newWishlist;
+        });
+      }
       console.error("Wishlist error:", err);
-      setError("Error adding product to wishlist");
+      showNotification('Error updating wishlist', 'error');
+    } finally {
+      setWishlistLoading(prev => ({ ...prev, [productId]: false }));
     }
   };
 
-
-  if(wishlist){
-    console.log("wishlist",wishlist);
-  } 
+  useEffect(() => {
+    fetchWishlist();
+  }, [custId]);
 
 
 
@@ -394,6 +467,32 @@ function ShopDetail() {
 
   return (
     <div className="shop-detail-container">
+      {/* Notification Toast */}
+      {notification && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '12px 24px',
+            backgroundColor: notification.type === 'success' ? '#4CAF50' : '#f44336',
+            color: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            animation: 'slideIn 0.3s ease-out',
+          }}
+        >
+          <span style={{ fontSize: '18px' }}>
+            {notification.type === 'success' ? '✅' : '❌'}
+          </span>
+          <span style={{ fontWeight: '500' }}>{notification.message}</span>
+        </div>
+      )}
+
       <button onClick={handleBack} className="back-button">
         ← Back
       </button>
@@ -595,7 +694,7 @@ function ShopDetail() {
           <tbody>
             {paginatedProducts.length > 0 ? (
               paginatedProducts.map((product, index) => (
-                <tr key={product.id || product.cosmetics_id || index}>
+                <tr key={product.id || index}>
                   {displayColumns.map(col => {
                     const value = product[col.column_name];
                     const columnType = col.data_type;
@@ -651,22 +750,42 @@ function ShopDetail() {
                   {/* Wishlist Button Cell */}
                  <td>
                   {(() => {
-                    const productId = product.id || product.cosmetics_id;
+                    console.log(product);
+                    const productId = product.id;
                     const isInWishlist = wishlist.has(productId);
+                    const isLoading = wishlistLoading[productId];
                     return (
                       <button
-                        onClick={() => handleAddToWishlist(product)}
-                        disabled={isInWishlist}
+                        onClick={() => handleToggleWishlist(product)}
+                        disabled={isLoading}
                         style={{
-                          padding: "6px 10px",
-                          backgroundColor: isInWishlist ? "#4CAF50" : "#007bff",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor: isInWishlist ? "default" : "pointer",
+                          padding: "6px 12px",
+                          backgroundColor: isInWishlist ? "#FF6B6B" : "#f8f9fa",
+                          color: isInWishlist ? "#fff" : "#333",
+                          border: isInWishlist ? "none" : "1px solid #ddd",
+                          borderRadius: "20px",
+                          cursor: isLoading ? "wait" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          transition: "all 0.2s ease",
                         }}
+                        title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
                       >
-                        {isInWishlist ? "Added" : "Add"}
+                        {isLoading ? (
+                          <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                        ) : (
+                          <span style={{ 
+                            fontSize: "16px",
+                            transition: "transform 0.2s ease",
+                            transform: isInWishlist ? "scale(1.1)" : "scale(1)"
+                          }}>
+                            {isInWishlist ? "❤️" : "🤍"}
+                          </span>
+                        )}
+                        <span>{isInWishlist ? "Wishlisted" : "Wishlist"}</span>
                       </button>
                     );
                   })()}
