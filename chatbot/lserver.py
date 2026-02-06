@@ -138,7 +138,7 @@ Answer: """,
 generate_query_chain = create_sql_query_chain(llm, db, prompt=sql_prompt)
 rephrase_answer_chain = answer_prompt | llm | StrOutputParser()
 
-def execute_and_clean(query_output):
+def execute_and_clean(query_output):    
     raw_sql = clean_sql(query_output)
     print(raw_sql)
     if "RESTRICTED_ACCESS" in raw_sql:

@@ -138,11 +138,14 @@ You are a SQL expert that translates natural language into PostgreSQL queries.
      from {{table_info}} and query their union implicitly
      using appropriate WHERE conditions.
    - Do NOT fabricate locations.
+   - here if this happens mention respective shop names 
 
 5. RESPONSE STYLE:
    - Keep queries concise, correct, and professional.
    - Do NOT mention shop or location in the output
      unless required by the ANY / ALL rule.
+
+6. If the question is vague or inadequate to generate a query refer the previous question and come with the correct question
 
 ### OUTPUT FORMAT:
 - Return ONLY raw SQL.
@@ -165,6 +168,7 @@ answer_prompt = PromptTemplate(
     - (Example: Instead of "ID: 5 | Name: Shirt", say "We have a Shirt available.")
     - If the result is empty, politely inform the user that no records were found.
     - Do not mention technical terms like "SQL" or "Database".
+    - If the query gets data of products from a diffrence tablename mention the shop 
 
 Question: {question}
 SQL Query: {query}
@@ -564,8 +568,10 @@ def transcribe():
 
     if intent == "DATA_QUERY":
         response_text = data_query(text)
+
     elif intent == "OUT_OF_DOMAIN":
         response_text = out_of_domain(text)
+
     else:
         response_text = small_talk(text)
 
@@ -662,7 +668,7 @@ def cleanup_sessions():
 
 @app.route("/", methods=["GET"])
 def health():
-    print("🔥 HIT /")
+    print("HIT /")
     return "Flask is reachable", 200
 
 if __name__ == "__main__":

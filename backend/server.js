@@ -16,6 +16,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } 
 });
 
+console.log(process.env.FRONTEND_URL)
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:5173",
