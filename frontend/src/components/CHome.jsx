@@ -34,15 +34,43 @@ function CHome({ custData }) {
     setFilterType('All');
   };
 
-  const handleShopClick = (shopId, shopType, shopName) => {
-    navigate('/shop-detail', {
-      state: {
-        shopId,
-        shopType,
-        shopName,
-        custId
-      }
-    });
+  const handleShopClick = async (shopId, shopType, shopName) => {
+    try{
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/customers/addShopPoint`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+            },
+            body: JSON.stringify({ 
+              shopId: shopId,
+              shopType: shopType,
+              shopName: shopName,
+              custId: custId
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (data.message) {
+          navigate('/shop-detail', {
+            state: {
+              shopId,
+              shopType,
+              shopName,
+              custId
+            }
+          });
+        } else {
+          setError(data.message || 'Failed to navigate to shop Page');
+        }
+
+    }catch(e){
+      console.error(e);
+    }
   };
 
   // Fetch shop data based on filters

@@ -1,5 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/Overview.css';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const Overview = (data) => {
     console.log("Data",data.Data)
@@ -7,6 +27,9 @@ const Overview = (data) => {
     const [loading, setLoading] = useState(true);
     const [feedbacks, setFeedbacks] = useState([]);
     const [avgRating, setAvgRating] = useState(0);
+    const [graphData, setGraphData] = useState([]);
+    const [showModal, setShowModal] = useState(false);
+    const [selectedShop, setSelectedShop] = useState(null);
 
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
@@ -118,6 +141,161 @@ const Overview = (data) => {
         fetchFeedbacks();
     }, [shopData]);
 
+    useEffect(() => {
+    const fetchShopHitCount = async () => {
+        try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch("http://localhost:5000/api/owners/shop-hit-count", {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+            type: data.Data.type,
+            city: data.Data.shop_city,
+            state: data.Data.shop_state,
+            country: data.Data.shop_country
+            })
+        });
+
+const result = await response.json();
+        console.log("Graph Data:", result);
+
+        if (Array.isArray(result)) {
+          setGraphData(result);
+        } else if (result.data && Array.isArray(result.data)) {
+          setGraphData(result.data);
+        }
+
+        } catch (err) {
+        console.error(err);
+        }
+    };
+
+    if (data?.Data) {
+        fetchShopHitCount();
+    }
+
+}, [data]);
+
+// Prepare top 5 data for bar graph
+    const topFiveShops = [...graphData]
+      .sort((a, b) => parseInt(b.total_hits || 0) - parseInt(a.total_hits || 0))
+      .slice(0, 5);
+
+    // Different colors for each bar
+    const barColors = [
+      'rgba(102, 126, 234, 0.85)',
+      'rgba(118, 75, 162, 0.85)',
+      'rgba(255, 99, 132, 0.85)',
+      'rgba(75, 192, 192, 0.85)',
+      'rgba(255, 159, 64, 0.85)',
+    ];
+
+    const barBorderColors = [
+      'rgba(102, 126, 234, 1)',
+      'rgba(118, 75, 162, 1)',
+      'rgba(255, 99, 132, 1)',
+      'rgba(75, 192, 192, 1)',
+      'rgba(255, 159, 64, 1)',
+    ];
+
+    const chartData = {
+      labels: topFiveShops.map(shop => shop.shop_name),
+      datasets: [
+        {
+          label: 'Total Hits',
+          data: topFiveShops.map(shop => parseInt(shop.total_hits || 0)),
+          backgroundColor: barColors.slice(0, topFiveShops.length),
+          borderColor: barBorderColors.slice(0, topFiveShops.length),
+          borderWidth: 1,
+          borderRadius: 6,
+        },
+      ],
+    };
+
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Most viewed shop',
+          font: {
+            size: 16,
+            weight: 'bold',
+          },
+          color: '#333',
+          padding: {
+            bottom: 20,
+          },
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: false,
+        },
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+          ticks: {
+            color: '#666',
+            font: {
+              size: 12,
+            },
+          },
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Views',
+            color: '#666',
+            font: {
+              size: 12,
+              weight: 'bold',
+            },
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)',
+          },
+          ticks: {
+            color: '#666',
+            font: {
+              size: 12,
+            },
+            callback: function(value) {
+              return Math.round(value);
+            },
+            stepSize: 1,
+          },
+        },
+      },
+      onClick: (event, elements) => {
+        if (elements.length > 0) {
+          const index = elements[0].index;
+          const shop = topFiveShops[index];
+          setSelectedShop(shop);
+          setShowModal(true);
+        }
+      },
+    };
+
+    const handleCloseModal = () => {
+      setShowModal(false);
+      setSelectedShop(null);
+    };
+
     if (loading) {
         return (
             <div className="loading-container">
@@ -204,12 +382,52 @@ const Overview = (data) => {
                         </section>
                     </div>
 
-                    {/* Right Column - Analysis (60% width, full height) */}
+{/* Right Column - Analysis (60% width, full height) */}
                     <div className="right-column">
                         <section className="section analysis-section">
                             <h2 className="section-title">Analysis</h2>
+                            <div className="chart-container">
+                                {graphData.length === 0 ? (
+                                    <p className="no-data">No graph data available</p>
+                                ) : (
+                                    <Bar data={chartData} options={chartOptions} />
+                                )}
+                            </div>
+                            <p className="chart-hint">Click on a bar to view all shop data</p>
                         </section>
                     </div>
+
+                    {/* Modal for full data view */}
+                    {showModal && (
+                        <div className="modal-overlay" onClick={handleCloseModal}>
+                            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">
+                                    <h3>Shop Details - {selectedShop?.shop_name}</h3>
+                                    <button className="modal-close" onClick={handleCloseModal}>
+                                        <i className="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                                <div className="modal-body">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Shop Name</th>
+                                                <th>Total Hits</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {graphData.map((shop, index) => (
+                                                <tr key={index} className={shop.shop_name === selectedShop?.shop_name ? 'highlighted' : ''}>
+                                                    <td>{shop.shop_name}</td>
+                                                    <td>{shop.total_hits}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </main>
         </div>

@@ -2056,6 +2056,38 @@ const bufferToBase64 = (buffer) => {
   return `data:${buffer.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
 };
 
+const getShopHitCount = async (req, res) => {
+  const { type, city, state, country } = req.body;
+
+  if (!type || !city || !state || !country) {
+    return res.status(400).json({ message: "Missing data" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT s.shop_name,
+             COALESCE(SUM(sh.hit_count), 0) AS total_hits
+      FROM shops s
+      LEFT JOIN shop_hits sh
+             ON s.shop_id = sh.shop_id
+      WHERE s.type = $1
+        AND s.shop_city = $2
+        AND s.shop_state = $3
+        AND s.shop_country = $4
+      GROUP BY s.shop_id, s.shop_name
+      ORDER BY total_hits DESC
+      `,
+      [type, city, state, country]
+    );
+
+    res.status(200).json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 
 module.exports = {
@@ -2080,4 +2112,5 @@ module.exports = {
   markOrderDoneAndDelete,
   updateOwnerProfile,
   updateShopProfile,
+  getShopHitCount
 };

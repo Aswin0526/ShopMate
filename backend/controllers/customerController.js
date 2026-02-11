@@ -916,7 +916,38 @@ const updateCustomerProfile = async (req, res) => {
   }
 };
 
-// Helper function to convert buffer to base64
+const handleShopPoint = async (req, res) => {
+  const { shopId, shopType, shopName, custId } = req.body;
+
+  if (!shopId || !shopType || !shopName || !custId) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    const update = await pool.query(
+      `UPDATE shop_hits
+      SET hit_count = hit_count + 1
+      WHERE customer_id = $1 AND shop_id = $2
+      RETURNING *`,
+      [custId, shopId]
+    );
+
+    if (update.rowCount === 0) {
+      await pool.query(
+        `INSERT INTO shop_hits (customer_id, shop_id, hit_count)
+        VALUES ($1, $2, 1)`,
+        [custId, shopId]
+      );
+    }
+
+    res.status(200).json({ message: "Success" });
+
+  } catch (err) {
+    console.error("Server Error:", err);
+    res.status(500).json({ message: "Failed to update hit count" });
+  }
+};
+
 
 module.exports = {
   registerCustomer,
@@ -932,4 +963,5 @@ module.exports = {
   getOrders,
   handleFeedbackSubmit,
   updateCustomerProfile,
+  handleShopPoint
 };
