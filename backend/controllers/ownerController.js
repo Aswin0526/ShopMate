@@ -2089,6 +2089,45 @@ const getShopHitCount = async (req, res) => {
   }
 };
 
+const WishListCount = async (req, res) => {
+  try {
+    const { type, city, state, country } = req.body;
+
+    const result = await pool.query(
+      `
+      SELECT 
+          w.product_id,
+          w.product_name,
+          w.type,
+          COUNT(*) AS wishlist_count
+      FROM wishlist w
+      JOIN shops s ON w.shop_id = s.shop_id
+      WHERE w.created_at >= NOW() - INTERVAL '1 month'
+        AND ($1::product_status IS NULL OR w.type = $1)
+        AND ($2::text IS NULL OR s.shop_city = $2)
+        AND ($3::text IS NULL OR s.shop_state = $3)
+        AND ($4::text IS NULL OR s.shop_country = $4)
+      GROUP BY w.product_id, w.product_name, w.type
+      ORDER BY wishlist_count DESC
+      LIMIT 5;
+      `,
+      [type || null, city || null, state || null, country || null]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (e) {
+    console.error("Wishlist Count Error:", e);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error"
+    });
+  }
+};
+
 
 module.exports = {
   registerOwner,
@@ -2112,5 +2151,6 @@ module.exports = {
   markOrderDoneAndDelete,
   updateOwnerProfile,
   updateShopProfile,
-  getShopHitCount
+  getShopHitCount,
+  WishListCount
 };

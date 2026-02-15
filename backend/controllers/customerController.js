@@ -414,8 +414,8 @@ const getShopDetails = async (req, res) => {
 const addWishList = async (req, res) => {
   try {
     console.log("inside addWishList");
-    const { cust_id, productId, shopId } = req.body;
-    console.log(cust_id, productId, shopId);
+    const { cust_id, productId, shopId, type, product_name } = req.body;
+    console.log(cust_id, productId, shopId, type, product_name);
     if (!cust_id || !productId || !shopId) {
       return res.status(400).json({
         success: false,
@@ -425,11 +425,11 @@ const addWishList = async (req, res) => {
 
     const result = await pool.query(
       `
-      INSERT INTO wishlist (cust_id, shop_id, product_id)
-      VALUES ($1, $2, $3)
+      INSERT INTO wishlist (cust_id, shop_id, product_id, product_name, type)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (cust_id, shop_id, product_id) DO NOTHING;
       `,
-      [cust_id, shopId, productId]
+      [cust_id, shopId, productId, product_name, type]
     );
 
     if (result.rows.length > 0) {

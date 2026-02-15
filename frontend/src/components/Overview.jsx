@@ -30,6 +30,7 @@ const Overview = (data) => {
     const [graphData, setGraphData] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [selectedShop, setSelectedShop] = useState(null);
+    const [wishListCount, setWishListCount] = useState(null);
 
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
@@ -145,7 +146,7 @@ const Overview = (data) => {
     const fetchShopHitCount = async () => {
         try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch("http://localhost:5000/api/owners/shop-hit-count", {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/shop-hit-count`, {
             method: "POST",
             headers: {
             "Content-Type": "application/json",
@@ -179,10 +180,55 @@ const result = await response.json();
 
 }, [data]);
 
+
+    useEffect(() => {
+    const fetchWishListCount = async () => {
+        try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/wishlist-hit-count`, {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+            type: data.Data.type,
+            city: data.Data.shop_city,
+            state: data.Data.shop_state,
+            country: data.Data.shop_country
+            })
+        });
+
+    const result = await response.json();
+        console.log("Graph Data:", result);
+
+        if (Array.isArray(result)) {
+          setWishListCount(result);
+        } else if (result.data && Array.isArray(result.data)) {
+          setWishListCount(result.data);
+        }
+        } catch (err) {
+        console.error(err);
+        }
+    };
+
+    if (data?.Data) {
+        fetchWishListCount();
+    }
+
+}, [data]);
+
 // Prepare top 5 data for bar graph
     const topFiveShops = [...graphData]
       .sort((a, b) => parseInt(b.total_hits || 0) - parseInt(a.total_hits || 0))
       .slice(0, 5);
+
+    // Prepare top 5 wishlist data for bar graph
+    const topFiveWishlist = wishListCount 
+      ? [...wishListCount]
+          .sort((a, b) => parseInt(b.wishlist_count || 0) - parseInt(a.wishlist_count || 0))
+          .slice(0, 5)
+      : [];
 
     // Different colors for each bar
     const barColors = [
@@ -209,6 +255,21 @@ const result = await response.json();
           data: topFiveShops.map(shop => parseInt(shop.total_hits || 0)),
           backgroundColor: barColors.slice(0, topFiveShops.length),
           borderColor: barBorderColors.slice(0, topFiveShops.length),
+          borderWidth: 1,
+          borderRadius: 6,
+        },
+      ],
+    };
+
+    // Wishlist chart data
+    const wishlistChartData = {
+      labels: topFiveWishlist.map(item => item.product_name),
+      datasets: [
+        {
+          label: 'Wishlist Count',
+          data: topFiveWishlist.map(item => parseInt(item.wishlist_count || 0)),
+          backgroundColor: barColors.slice(0, topFiveWishlist.length),
+          borderColor: barBorderColors.slice(0, topFiveWishlist.length),
           borderWidth: 1,
           borderRadius: 6,
         },
@@ -288,6 +349,74 @@ const result = await response.json();
           setSelectedShop(shop);
           setShowModal(true);
         }
+      },
+    };
+
+    const wishlistChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Most Wishlisted Products',
+          font: {
+            size: 16,
+            weight: 'bold',
+          },
+          color: '#333',
+          padding: {
+            bottom: 20,
+          },
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: false,
+        },
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+          ticks: {
+            color: '#666',
+            font: {
+              size: 12,
+            },
+          },
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Wishlist Count',
+            color: '#666',
+            font: {
+              size: 12,
+              weight: 'bold',
+            },
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.05)',
+          },
+          ticks: {
+            color: '#666',
+            font: {
+              size: 12,
+            },
+            callback: function(value) {
+              return Math.round(value);
+            },
+            stepSize: 1,
+          },
+        },
       },
     };
 
@@ -386,6 +515,8 @@ const result = await response.json();
                     <div className="right-column">
                         <section className="section analysis-section">
                             <h2 className="section-title">Analysis</h2>
+                            
+                            {/* Shop Views Chart */}
                             <div className="chart-container">
                                 {graphData.length === 0 ? (
                                     <p className="no-data">No graph data available</p>
@@ -394,6 +525,16 @@ const result = await response.json();
                                 )}
                             </div>
                             <p className="chart-hint">Click on a bar to view all shop data</p>
+
+                            {/* Wishlist Chart */}
+                            <div className="chart-container" style={{ marginTop: '30px' }}>
+                                {!wishListCount || wishListCount.length === 0 ? (
+                                    <p className="no-data">No wishlist data available</p>
+                                ) : (
+                                    <Bar data={wishlistChartData} options={wishlistChartOptions} />
+                                )}
+                            </div>
+                            <p className="chart-hint">Most wishlisted products</p>
                         </section>
                     </div>
 

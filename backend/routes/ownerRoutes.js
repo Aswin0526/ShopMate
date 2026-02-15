@@ -23,7 +23,8 @@ const {
   markOrderDoneAndDelete,
   updateOwnerProfile,
   updateShopProfile,
-  getShopHitCount
+  getShopHitCount,
+  WishListCount
 } = require("../controllers/ownerController");
 const { verifyToken, isOwner, isCustomer } = require("../middleware/auth");
 
@@ -61,7 +62,9 @@ router.post("/getOrders", verifyToken, isOwner, getOrders);
 router.post("/approve", verifyToken, isOwner, approveOrder);
 router.post("/markDone", verifyToken, isOwner, markOrderDoneAndDelete);
 
+// graph
 router.post("/shop-hit-count", verifyToken, isOwner, getShopHitCount);
+router.post("/wishlist-hit-count", verifyToken, isOwner, WishListCount);
 
 module.exports = router;
 

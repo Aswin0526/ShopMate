@@ -105,10 +105,8 @@ function ShopDetail() {
     console.log(productId);
     const isInWishlist = wishlist.has(productId);
     
-    // Set loading state
     setWishlistLoading(prev => ({ ...prev, [productId]: true }));
     
-    // Optimistically update UI
     if (isInWishlist) {
       setWishlist(prev => {
         const newWishlist = new Set(prev);
@@ -132,7 +130,9 @@ function ShopDetail() {
           body: JSON.stringify({
             cust_id: custId,
             productId: productId,
-            shopId: shopId
+            shopId: shopId,
+            type: shopType,
+            product_name: product.product_name
           }),
         }
       );
