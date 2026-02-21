@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../styles//ShopDetail.css';
+import Voice from '../components/Voice';
 
 function ShopDetail() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { shopId, shopType, shopName, custId } = state || {};
   const token = localStorage.getItem('access_token');
-
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,6 +30,31 @@ function ShopDetail() {
   const [hoverRating, setHoverRating] = useState(0);
   const [userFeedback, setUserFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [showChat, setShowChat] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
+
+  const [formData, setFormData] = useState({
+    shopName: '',
+    shopId: '',
+    city: '',
+    state: '',
+    country: '',
+    productType: '',
+  });
+
+  const handleChatClose = () => {
+    setShowChat(false);
+  };
+
+  const handleVoiceOpen = () => {
+    setShowChat(false);
+    setShowVoice(true);
+  };
+
+  const handleVoiceClose = () => {
+    setShowVoice(false);
+  };
   
   const handleStarClick = (rating) => {
     setUserRating(rating);
@@ -177,7 +203,6 @@ function ShopDetail() {
   useEffect(() => {
     fetchWishlist();
   }, [custId]);
-
 
 
   const normalizedShopName = shopName
@@ -360,7 +385,6 @@ function ShopDetail() {
     fetchShopImages();
   }, [shopId]);
 
-  // Fetch shop details
   useEffect(() => {
     if (!shopId) {
       setError('No shop ID provided');
@@ -402,6 +426,70 @@ function ShopDetail() {
 
   const handleBack = () => {
     navigate(-1);
+  };
+
+  const handleChatClick = async () => {
+    console.log('Chat clicked, shop details:', {
+      type: shop?.type,
+      city: shop?.shop_city,
+      state: shop?.shop_state,
+      country: shop?.shop_country,
+      shopName: shop?.shop_name
+    });
+    
+    try {
+      let session_id = localStorage.getItem('session_id');
+      if (!session_id) {
+        session_id = crypto.randomUUID();
+        localStorage.setItem('session_id', session_id);
+      }
+      console.log("Using session_id:", session_id);
+
+      // Prepare formData with shop details
+      const formData = {
+        shopName: shop?.shop_name || '',
+        shopId: shopId || '',
+        city: shop?.shop_city || '',
+        state: shop?.shop_state || '',
+        country: shop?.shop_country || '',
+        productType: shopType || '',
+      };
+
+      const response = await fetch(
+        `${import.meta.env.VITE_CHATBOT_URL}/start-chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Session-ID": session_id
+          },
+          body: JSON.stringify({
+            session_id: session_id,
+            formData: formData
+          }),
+        }
+      );
+      const data = await response.json();
+      console.log("Backend response:", data);
+      
+      if (!data.message) {
+        console.error("Failed to start a chat");
+        showNotification("Failed to start chat", "error");
+      } else {
+        // Store session_id from backend response (for verification)
+        if (data.session_id) {
+          localStorage.setItem('session_id', data.session_id);
+          console.log("Session ID stored:", data.session_id);
+        }
+        console.log("Chat session started successfully!");
+        showNotification("Chat session started!", "success");
+        setShowVoiceChat(true);
+      }
+
+    } catch (err) {
+      console.error("Error starting chat:", err);
+      showNotification("Error starting chat session", "error");
+    }
   };
 
   if (loading) {
@@ -467,6 +555,32 @@ function ShopDetail() {
 
   return (
     <div className="shop-detail-container">
+      {/* Chat Icon */}
+      <button
+        onClick={handleChatClick}
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          width: '50px',
+          height: '50px',
+          borderRadius: '50%',
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '24px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 1000,
+        }}
+        title="Chat"
+      >
+        💬
+      </button>
+
       {/* Notification Toast */}
       {notification && (
         <div
@@ -908,6 +1022,10 @@ function ShopDetail() {
             />
           </div>
         </div>
+      )}
+
+      {showVoiceChat && (
+        <Voice onClose={() => setShowVoiceChat(false)} />
       )}
     </div>
   );

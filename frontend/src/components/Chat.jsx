@@ -32,7 +32,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+        const backendUrl = import.meta.env.VITE_BACKEND_URL;
         
         const [citiesRes, statesRes, countriesRes] = await Promise.all([
           fetch(`${backendUrl}/api/locations/cities`),
@@ -144,7 +144,6 @@ function Chat({ custData, onClose, onVoiceOpen }) {
       if (!data.message) {
         console.error("Failed to start a chat");
       } else {
-        // Store session_id from backend response (for verification)
         if (data.session_id) {
           localStorage.setItem('session_id', data.session_id);
           console.log("Session ID stored:", data.session_id);
@@ -385,13 +384,12 @@ function Chat({ custData, onClose, onVoiceOpen }) {
         </button>
         
         {renderProgressDots()}
-        
         {currentStep === 1 && renderStep1()}
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
         {isSubmitted && renderSummary()}
-        
         {!isSubmitted && renderNavigation()}
+
       </div>
     </div>
   );
