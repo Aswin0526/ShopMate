@@ -14,7 +14,10 @@ const {
   getOrders,
   handleFeedbackSubmit,
   updateCustomerProfile,
-  handleShopPoint
+  handleShopPoint,
+  getMostNeeded,
+  addVote,
+  addProduct
 } = require("../controllers/customerController");
 const { verifyToken, isCustomer } = require("../middleware/auth");
 
@@ -39,5 +42,8 @@ router.post("/getOrders", verifyToken, isCustomer, getOrders);
 router.post("/addfeedback", verifyToken, isCustomer, handleFeedbackSubmit);
 
 router.post("/addShopPoint", verifyToken, isCustomer, handleShopPoint);
+router.post("/getMostNeeded", verifyToken, isCustomer, getMostNeeded);
+router.post("/addVote", verifyToken, isCustomer, addVote);
+router.post("/addProduct", verifyToken, isCustomer, addProduct);
 
 module.exports = router;

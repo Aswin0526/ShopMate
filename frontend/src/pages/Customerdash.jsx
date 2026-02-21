@@ -6,6 +6,7 @@ import Custorders from '../components/Custorders';
 import Chat from '../components/Chat';
 import CUpdate from '../components/CUpdate';
 import Voice from '../components/Voice';
+import Needed from './Needed';
 
 function Customerdash() {
   const custData = JSON.parse(localStorage.getItem('user_data'));
@@ -39,7 +40,7 @@ function Customerdash() {
         </div>
 
         <nav className="nav">
-          {['Home', 'WishList', 'Orders', 'Update'].map(tab => (
+          {['Home', 'WishList', 'Orders', 'Update', 'Needed'].map(tab => (
             <button
               key={tab}
               className={activeTab === tab ? 'nav-link active' : 'nav-link'}
@@ -67,6 +68,7 @@ function Customerdash() {
         {activeTab === 'Home' && !showChat && <CHome custData={custData} />}
         {activeTab === 'WishList' && !showChat && <Corder custData={custData} />}
         {activeTab === 'Orders' && !showChat && <Custorders custData={custData} />}
+        {activeTab === 'Needed' && !showChat && <Needed custData={custData} />}
         {activeTab === 'Chat' && showChat && (
           <Chat custData={custData} onClose={handleChatClose} onVoiceOpen={handleVoiceOpen} />
         )}

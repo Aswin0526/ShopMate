@@ -557,25 +557,8 @@ function ShopDetail() {
     <div className="shop-detail-container">
       {/* Chat Icon */}
       <button
+        className="chat-fab"
         onClick={handleChatClick}
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          width: '50px',
-          height: '50px',
-          borderRadius: '50%',
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '24px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          zIndex: 1000,
-        }}
         title="Chat"
       >
         💬

@@ -948,6 +948,133 @@ const handleShopPoint = async (req, res) => {
   }
 };
 
+const getMostNeeded = async (req, res) => {
+    const { city, state, country } = req.body;
+
+    try {
+        const query = `
+            SELECT 
+                p.*, 
+                COUNT(v.id)::INTEGER AS total_votes
+            FROM products p
+            LEFT JOIN votes v ON p.id = v.product_id
+            WHERE p.city = $1 
+              AND p.state = $2 
+              AND p.country = $3
+              AND p.created_at >= NOW() - INTERVAL '1 month'
+            GROUP BY p.id
+            ORDER BY total_votes DESC, p.created_at DESC;
+        `;
+        
+        const result = await pool.query(query, [city, state, country]);
+
+        if (result.rows.length === 0) {
+            return res.status(200).json({ success: false, data: [] });
+        }
+
+        // Convert bytea pic to base64
+        const products = result.rows.map(product => ({
+            ...product,
+            pic: product.pic ? `data:image/jpeg;base64,${product.pic.toString('base64')}` : null
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: products
+        });
+
+    } catch (err) {
+        console.error("Database error:", err);
+        res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
+const addVote = async (req, res) => {
+    const { productId, customerId } = req.body;
+    console.log("in", productId, customerId);
+
+    if (!productId || !customerId) {
+        return res.status(400).json({ 
+            success: false, 
+            message: "Product ID and Customer ID are required" 
+        });
+    }
+
+    try {
+        // Check if user already voted for this product
+        const existingVote = await pool.query(
+            `SELECT * FROM votes WHERE product_id = $1 AND cust_id = $2`,
+            [productId, customerId]
+        );
+
+        if (existingVote.rows.length > 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "You have already voted for this product" 
+            });
+        }
+
+        // Insert the vote
+        const result = await pool.query(
+            `INSERT INTO votes (product_id, cust_id) VALUES ($1, $2) RETURNING *`,
+            [productId, customerId]
+        );
+
+        res.status(201).json({
+            success: true,
+            message: "Vote added successfully",
+            data: result.rows[0]
+        });
+
+    } catch (err) {
+        console.error("Database error:", err);
+        res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
+const addProduct = async (req, res) => {
+    const { product_name, type, description, state, city, country } = req.body;
+
+    if (!product_name || !state || !city || !country) {
+        return res.status(400).json({ 
+            success: false, 
+            message: "Product name, state, city, and country are required" 
+        });
+    }
+
+    try {
+        // Handle pic if it's a base64 string (already uploaded)
+        let picBuffer = null;
+        if (req.body.pic && typeof req.body.pic === 'string' && req.body.pic.startsWith('data:')) {
+            const base64Data = req.body.pic.replace(/^data:image\/\w+;base64,/, '');
+            picBuffer = Buffer.from(base64Data, 'base64');
+        }
+
+        const result = await pool.query(
+            `INSERT INTO products (product_name, type, description, pic, state, city, country) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) 
+             RETURNING *`,
+            [product_name, type, description, picBuffer, state, city, country]
+        );
+
+        // Convert pic to base64 for response if exists
+        const product = result.rows[0];
+        if (product.pic) {
+            product.pic = `data:image/jpeg;base64,${product.pic.toString('base64')}`;
+        }
+
+        res.status(201).json({
+            success: true,
+            message: "Product added successfully",
+            data: product
+        });
+
+    } catch (err) {
+        console.error("Database error:", err);
+        res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
+
 
 module.exports = {
   registerCustomer,
@@ -963,5 +1090,8 @@ module.exports = {
   getOrders,
   handleFeedbackSubmit,
   updateCustomerProfile,
-  handleShopPoint
+  handleShopPoint,
+  getMostNeeded,
+  addVote,
+  addProduct
 };

@@ -31,6 +31,7 @@ const Overview = (data) => {
     const [showModal, setShowModal] = useState(false);
     const [selectedShop, setSelectedShop] = useState(null);
     const [wishListCount, setWishListCount] = useState(null);
+    const [mostWantedProducts, setMostWantedProducts] = useState([]);
 
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
@@ -214,6 +215,42 @@ const result = await response.json();
 
     if (data?.Data) {
         fetchWishListCount();
+    }
+
+}, [data]);
+
+// Fetch most wanted products based on shop type and location
+useEffect(() => {
+    const fetchMostWantedProducts = async () => {
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/most-wanted-products`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    type: data.Data.type,
+                    city: data.Data.shop_city,
+                    state: data.Data.shop_state,
+                    country: data.Data.shop_country
+                })
+            });
+
+            const result = await response.json();
+            console.log("Most Wanted Products:", result);
+
+            if (result.success && Array.isArray(result.data)) {
+                setMostWantedProducts(result.data);
+            }
+        } catch (err) {
+            console.error("Error fetching most wanted products:", err);
+        }
+    };
+
+    if (data?.Data) {
+        fetchMostWantedProducts();
     }
 
 }, [data]);
@@ -535,6 +572,84 @@ const result = await response.json();
                                 )}
                             </div>
                             <p className="chart-hint">Most wishlisted products</p>
+
+                            {/* Most Wanted Products Section */}
+                            <div className="most-wanted-section" style={{ marginTop: '30px' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '15px' }}>
+                                    🔥 Most Wanted Products (Last 1 Month)
+                                </h3>
+                                {mostWantedProducts.length === 0 ? (
+                                    <p className="no-data">No products found</p>
+                                ) : (
+                                    <div className="most-wanted-list">
+                                        {mostWantedProducts.map((product, index) => (
+                                            <div key={product.id} className="most-wanted-item" style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                padding: '12px',
+                                                background: '#f8f9fa',
+                                                borderRadius: '8px',
+                                                marginBottom: '10px',
+                                                gap: '12px'
+                                            }}>
+                                                <div style={{
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    borderRadius: '8px',
+                                                    overflow: 'hidden',
+                                                    flexShrink: 0,
+                                                    background: '#e9ecef'
+                                                }}>
+                                                    {product.pic ? (
+                                                        <img 
+                                                            src={product.pic} 
+                                                            alt={product.product_name}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                    ) : (
+                                                        <div style={{ 
+                                                            width: '100%', 
+                                                            height: '100%', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            justifyContent: 'center',
+                                                            fontSize: '20px'
+                                                        }}>📦</div>
+                                                    )}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ 
+                                                        fontWeight: '600', 
+                                                        color: '#333',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}>
+                                                        {product.product_name}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: '#666' }}>
+                                                        {product.description || 'No description'}
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    padding: '6px 12px',
+                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                    borderRadius: '20px',
+                                                    color: '#fff',
+                                                    fontWeight: '600',
+                                                    fontSize: '14px',
+                                                    flexShrink: 0
+                                                }}>
+                                                    🔥 {product.total_votes || 0}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </section>
                     </div>
 

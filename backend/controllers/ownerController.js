@@ -2128,6 +2128,67 @@ const WishListCount = async (req, res) => {
   }
 };
 
+// Get most voted products for a shop type and location
+const getMostWantedProducts = async (req, res) => {
+  try {
+    const { type, city, state, country } = req.body;
+
+    if (!type || !city || !state || !country) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Type, city, state, and country are required" 
+      });
+    }
+
+    console.log(type, city, state, country)
+    const result = await pool.query(
+      `
+      SELECT 
+        p.id,
+        p.product_name,
+        p.type,
+        p.description,
+        p.pic,
+        p.city,
+        p.state,
+        p.country,
+        p.created_at,
+        COUNT(v.id)::INTEGER AS total_votes
+      FROM products p
+      LEFT JOIN votes v ON p.id = v.product_id
+        AND v.created_at >= NOW() - INTERVAL '1 month'
+      WHERE p.type = $1
+        AND p.city = $2
+        AND p.state = $3
+        AND p.country = $4
+        AND p.created_at >= NOW() - INTERVAL '1 month'
+      GROUP BY p.id
+      ORDER BY total_votes DESC, p.created_at DESC
+      LIMIT 20
+      `,
+      [type, city, state, country]
+    );
+
+    // Convert pic to base64 if exists
+    const products = result.rows.map(product => ({
+      ...product,
+      pic: product.pic ? `data:image/jpeg;base64,${product.pic.toString('base64')}` : null
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: products
+    });
+
+  } catch (e) {
+    console.error("Get Most Wanted Products Error:", e);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error"
+    });
+  }
+};
+
 
 module.exports = {
   registerOwner,
@@ -2152,5 +2213,6 @@ module.exports = {
   updateOwnerProfile,
   updateShopProfile,
   getShopHitCount,
-  WishListCount
+  WishListCount,
+  getMostWantedProducts
 };
