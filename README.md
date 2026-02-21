@@ -7,70 +7,65 @@ A voice-enabled assistant to guide customers through store navigation and provid
 ## Architecture Diagram
 
 ```mermaid
-flowchart TB
-    subgraph CLIENT["CLIENT LAYER"]
-        FRONTEND["Frontend (React + Vite)
-        - Login Page
-        - Register Page
-        - Customer Dashboard
-        - Shop Owner Dashboard
-        - Chat Component
-        - Voice Component
-        - Map Component
-        - Overview Component
-        - Stock Component
-        - Preorder Component
-        - Update Component
-        - ShopDetail Component"]
+flowchart TD
+    %% Global Styles
+    classDef client fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
+    classDef server fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20;
+    classDef ai fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C;
+    classDef storage fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C;
+
+    subgraph CLIENT_LAYER ["📱 Client Layer"]
+        direction TB
+        FE[React + Vite Application]
+        subgraph PAGES ["Views & Components"]
+            direction LR
+            P1[Dashboards] --- P2[Auth] --- P3[Shop Details]
+            P4[Voice/Chat] --- P5[Maps/Stock] --- P6[Preorders]
+        end
     end
 
-    CLIENT -->|REST API| BACKEND
-
-    subgraph BACKEND["BACKEND LAYER"]
-        EXPRESS["Express.js Server
-        - Routes (/customers, /owners, /locations, /auth/refresh)
-        - Controllers (auth, customer, owner)
-        - Middleware (JWT Auth)
-        - Database Config
-        - Utils (token, validation)"]
+    subgraph BACKEND_LAYER ["⚙️ Core Services (Node.js)"]
+        EX[Express.js API Gateway]
+        direction TB
+        subgraph EX_INTERNAL ["Internal Modules"]
+            direction RL
+            M1[JWT Middleware]
+            M2[Controllers]
+            M3[Routes]
+        end
     end
 
-    BACKEND -->|HTTP/REST| CHATBOT
-
-    subgraph CHATBOT["AI CHATBOT LAYER"]
-        FLASK["Flask Server
-        - Intent Classification (Small Talk, Data Query, Out of Domain)
-        - Sentence Transformers
-        - LangChain Pipeline (Gemini LLM, SQL Generator, Query Executor, Response Formatter)
-        - Session Management (Chat Sessions, History, Rate Limiting)
-        - API Endpoints (/start-chat, /transcribe, /chat-history, /clear-chat)"]
+    subgraph AI_LAYER ["🤖 Intelligence Layer (Python)"]
+        FL[Flask AI Server]
+        subgraph PIPELINE ["LangChain Workflow"]
+            direction TB
+            LC1[Intent Classification]
+            LC2[SQL Generator]
+            LC3[Gemini LLM]
+        end
     end
 
-    CHATBOT -->|SQL Queries| DATABASE
-
-    subgraph DATABASE["DATABASE LAYER"]
-        DB["PostgreSQL
-        - customers
-        - owners
-        - products
-        - orders
-        - locations
-        - stocks
-        - categories
-        - wishlist
-        - order_items
-        - refresh_tokens
-        - shop-specific tables"]
+    subgraph DB_LAYER ["🗄️ Persistence Layer"]
+        DB[(PostgreSQL Database)]
+        subgraph TABLES ["Schema"]
+            direction RL
+            T1[Users/Auth]
+            T2[Inventory/Stock]
+            T3[Orders/Geo-Data]
+        end
     end
 
-    style CLIENT fill:#e1f5fe,stroke:#01579b
-    style FRONTEND fill:#b3e5fc,stroke:#0277bd
-    style BACKEND fill:#e8f5e9,stroke:#2e7d32
-    style EXPRESS fill:#c8e6c9,stroke:#388e3c
-    style CHATBOT fill:#fff3e0,stroke:#e65100
-    style FLASK fill:#ffe0b2,stroke:#f57c00
-    style DATABASE fill:#f3e5f5,stroke:#7b1fa2
-    style DB fill:#ede7f6,stroke:#512da8
+    %% Connectivity
+    FE <== "REST / JSON" ==> EX
+    EX <== "HTTP / Proxy" ==> FL
+    FL <== "Raw SQL" ==> DB
+    EX <== "Sequelize / TypeORM" ==> DB
+
+    %% Assign Classes
+    class CLIENT_LAYER,FE,PAGES,P1,P2,P3,P4,P5,P6 client;
+    class BACKEND_LAYER,EX,EX_INTERNAL,M1,M2,M3 server;
+    class AI_LAYER,FL,PIPELINE,LC1,LC2,LC3 ai;
+    class DB_LAYER,DB,TABLES,T1,T2,T3 storage;
 ```
 
 ---
