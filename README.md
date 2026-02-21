@@ -315,26 +315,39 @@ bash
 
 ## Environment Variables
 
-### Backend (.env)
-```
-PORT=5000
-FRONTEND_URL=http://localhost:5173
-DATABASE_URL=postgresql://...
-JWT_SECRET=your-secret-key
-```
-
 ### Chatbot (.env)
+Create a `.env` file in the `Chatbot/` directory:
+```env
+FRONTEND_URL=
+GEMENI_API_KEY=
+DATABASE_URL=
+user= 
+password=
+host=
+port=
+PORT=
+dbname=
 ```
-user=postgres
-password=your-password
-host=localhost
-port=5432
-dbname=shopmate
-GEMENI_API_KEY=your-gemini-key
+
+### Backend (.env)
+Create a `.env` file in the `backend/` directory:
+```env
+FRONTEND_URL=
+PORT=
+NODE_ENV=
+DATABASE_URL=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+JWT_ACCESS_EXPIRES_IN=
+JWT_REFRESH_EXPIRES_IN=
 ```
 
----
+### Frontend (.env)
+Create a `.env` file in the `frontend/` directory:
+```env
+VITE_BACKEND_URL=<URL>
+VITE_CHATBOT_URL=<URL>
 
-## License
 
-MIT License
+```
+
