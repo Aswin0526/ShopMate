@@ -316,25 +316,372 @@ bash
 ## Environment Variables
 
 ### Backend (.env)
-```
+Create a `.env` file in the `backend/` directory:
+```env
+# Server Configuration
 PORT=5000
+NODE_ENV=development
+
+# Frontend URL for CORS
 FRONTEND_URL=http://localhost:5173
-DATABASE_URL=postgresql://...
-JWT_SECRET=your-secret-key
+
+# Database Configuration
+DATABASE_URL=postgresql://username:password@host:port/database_name
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=shopmate
+DB_USER=postgres
+DB_PASSWORD=your_password
+
+# JWT Authentication
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+JWT_REFRESH_SECRET=your-refresh-secret-key-change-this-in-production
+JWT_EXPIRE=15m
+JWT_REFRESH_EXPIRE=7d
+
+# Optional: Cloudinary for image uploads (if used)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 ### Chatbot (.env)
-```
+Create a `.env` file in the `chatbot/` directory:
+```env
+# Database Configuration
 user=postgres
-password=your-password
+password=your_password
 host=localhost
 port=5432
 dbname=shopmate
-GEMENI_API_KEY=your-gemini-key
+sslmode=require
+
+# Google Gemini AI Configuration
+GEMENI_API_KEY=your-google-gemini-api-key
+GEMINI_API_KEY=your-google-gemini-api-key
+
+# Flask Configuration
+FLASK_ENV=development
+FLASK_DEBUG=0
+FLASK_HOST=0.0.0.0
+FLASK_PORT=3000
+
+# Session Configuration
+SECRET_KEY=your-flask-secret-key
+SESSION_TIMEOUT=3600
+RATE_LIMIT_SECONDS=3
 ```
 
----
+### Frontend (.env)
+Create a `.env` file in the `frontend/` directory:
+```env
+# Vite Configuration
+VITE_API_URL=http://localhost:5000
+VITE_CHATBOT_URL=http://localhost:3000
+
+# Optional: Google Maps API (if used)
+VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+```
+
 
 ## License
 
 MIT License
+
+---
+
+## Complete Process Flow
+
+This section provides a comprehensive overview of the ShopMate application flow, including all pages, functionalities, and user interactions.
+
+### User Access Flow
+
+```
+                           ┌──────────────┐
+                           │   Login      │
+                           │   Page       │
+                           └──────┬───────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │                            │
+              ┌─────▼─────┐              ┌──────▼──────┐
+              │ Customer  │              │   Shop     │
+              │ Login     │              │   Owner    │
+              └─────┬─────┘              │   Login    │
+                    │                    └──────┬──────┘
+                    │                           │
+          ┌─────────▼──────────┐      ┌─────────▼──────────┐
+          │  Customer         │      │  Shop Owner        │
+          │  Dashboard       │      │  Dashboard         │
+          │ /customer/dash   │      │  /shop/dashboard   │
+          └──────────────────┘      └────────────────────┘
+```
+
+---
+
+### Authentication Pages
+
+#### Login Page (`/` or `/login`)
+- **User Types**: Customer | Shop Owner (toggle)
+- **Inputs**: Email, Password
+- **Actions**:
+  - Validates credentials via API (`/api/customers/login` or `/api/owners/login`)
+  - Stores JWT tokens (access + refresh)
+  - Redirects based on user type:
+    - Customer → `/customer/dashboard`
+    - Owner → `/shop/dashboard`
+
+#### Register Page (`/register`)
+- **Two Registration Types**:
+
+**Customer Registration** (`/register/customer`)
+- Fields: Name, Email, Phone, State, Country, City, Pincode, Password
+- API: `/api/customers/register`
+- Success → Redirect to Login
+
+**Shop Owner Registration** (`/register/owner`)
+- **Step 1 - Basic Info**: Owner details + Shop details
+  - Fields: Owner Name, Email, Phone, Location, Shop Name, Phone, Email, Website, Country, State, City, Pincode, Type, Google Maps Link, Password
+- **Step 2 - Image Upload** (Mandatory):
+  - Shop Logo (required)
+  - Shop Images (at least 1 required, max 5)
+- API: `/api/owners/register-basic` → `/api/owners/complete-registration`
+- Success → Redirect to Login
+
+---
+
+### Customer Dashboard Flow (`/customer/dashboard`)
+
+```
+Customer Dashboard
+│
+├─── Tab: Home (CHome)
+│    │
+│    ├── Filter Section
+│    │   ├── Country (text input)
+│    │   ├── State (text input)
+│    │   ├── City (text input)
+│    │   ├── Shop Type (dropdown: All/Grocery/Bookstore/Clothing/Electronics/Cosmetics)
+│    │   └── Reset Button
+│    │
+│    └── Shop Grid
+│        └── Shop Cards (Click → Shop Detail)
+│
+├─── Tab: WishList (Corder)
+│    ├── Displays wishlisted products
+│    └── Actions: Remove from wishlist
+│
+├─── Tab: Orders (Custorders)
+│    ├── Order History List
+│    └── Order Details (products, pickup time, status)
+│
+├─── Tab: Update (CUpdate)
+│    └── Profile Update Form
+│
+├─── Tab: Needed (Needed)
+│    ├── Most Needed Products (by votes)
+│    ├── Vote for products
+│    └── Add new product suggestions
+│
+├─── Chat Button → Chat Modal
+│    │
+│    ├── Step 1: Select Product Type
+│    │   └── Electronics/Books/Cosmetics/Clothing/Groceries
+│    │
+│    ├── Step 2: Select Location
+│    │   ├── City (dropdown)
+│    │   ├── State (dropdown)
+│    │   └── Country (dropdown)
+│    │
+│    ├── Step 3: Select Shop (Optional)
+│    │   └── Shop Name (dropdown)
+│    │
+│    └── Summary → Start Chat Session → Voice Interface
+│
+└─── Voice Button (from Chat) → Voice Component
+     ├── Speech-to-Text Input
+     └── AI Response Display
+```
+
+#### Shop Detail Page (`/shop-detail`)
+**Access**: From CHome shop card click
+
+**Components**:
+1. **Shop Info Section**
+   - Shop Name, Type, Location, Pincode, Email, Phone, Website
+   - Shop Images Gallery
+
+2. **Ratings & Reviews Section**
+   - Average Rating Display
+   - Rating Breakdown (5 stars to 1 star)
+   - Recent Feedback List
+
+3. **Add Feedback Section**
+   - Star Rating Input (1-5)
+   - Feedback Textarea
+   - Submit Button
+
+4. **Product Catalog**
+   - Search Products
+   - Pagination
+   - Product Table (name, price, quantity, etc.)
+   - Product Images (click to preview)
+   - Wishlist Button
+
+5. **Chat/Floating Action Button**
+   - Opens Chat Modal → Voice Interface
+   - Starts AI Chat Session
+
+---
+
+### Shop Owner Dashboard Flow (`/shop/dashboard`)
+
+```
+Shop Owner Dashboard
+│
+├─── Tab: Overview
+│    │
+│    ├── Ratings & Reviews
+│    │   ├── Average Rating
+│    │   ├── Rating Breakdown
+│    │   └── Recent Feedback Cards
+│    │
+│    └── Analytics
+│        ├── Shop Views Chart (Bar graph - top 5 shops)
+│        ├── Wishlist Chart (Top 5 products)
+│        └── Most Wanted Products List (Last 1 month)
+│
+├─── Tab: Stock (Inventory Management)
+│    │
+│    ├── Search Products
+│    ├── Product Table
+│    │   ├── Product Details
+│    │   ├── Images (click to preview)
+│    │   └── Actions (Edit/Delete)
+│    │
+│    ├── Add Product Button → Modal
+│    │   ├── Dynamic Form Fields
+│    │   └── Image Upload (up to 5)
+│    │
+│    └── Edit Product → Modal (same as Add)
+│
+├─── Tab: Map
+│    └── Store Layout Display
+│
+├─── Tab: Update (Shop Profile)
+│    │
+│    ├── Owner Information Update
+│    ├── Shop Details Update
+│    └── Image Upload (Logo + Shop Images)
+│
+└─── Tab: Preorder
+     └── Preorder Management
+```
+
+---
+
+### AI Chatbot Process Flow
+
+```
+User Input (Voice/Text)
+        │
+        ▼
+┌───────────────────┐
+│  Intent           │
+│  Classification   │
+│  (Sentence        │
+│  Transformers)   │
+└────────┬──────────┘
+         │
+    ┌────┴────┬─────────────────┬──────────────────┐
+    │         │                 │                  │
+    ▼         ▼                 ▼                  ▼
+┌────────┐ ┌──────────┐ ┌─────────────┐ ┌─────────────────┐
+│ SMALL  │ │  DATA    │ │ OUT OF      │ │  (Default)      │
+│ TALK   │ │  QUERY   │ │ DOMAIN      │ │  SMALL TALK     │
+└───┬────┘ └────┬─────┘ └──────┬──────┘ └─────────────────┘
+    │           │               │
+    │           ▼               │
+    │    ┌─────────────┐        │
+    │    │ SQL Query   │        │
+    │    │ Generation  │        │
+    │    │ (LangChain) │        │
+    │    └──────┬──────┘        │
+    │           │               │
+    │    ┌──────▼──────┐        │
+    │    │ Execute SQL │        │
+    │    │ (PostgreSQL)│        │
+    │    └──────┬──────┘        │
+    │           │               │
+    └───────────┴───────────────┘
+                │
+                ▼
+    ┌─────────────────────┐
+    │  Format Response    │
+    │  (Natural Language) │
+    └──────────┬──────────┘
+               │
+               ▼
+        Display to User
+```
+
+### Intent Classification
+- **SMALL_TALK**: Greetings, general conversation
+- **DATA_QUERY**: Product searches, prices, stock, inventory
+- **OUT_OF_DOMAIN**: Non-shop related questions
+
+### Session Management
+- Session ID generated and stored
+- Chat history maintained per session
+- Rate limiting (3 seconds between requests)
+- Session timeout: 1 hour
+
+---
+
+### Database Schema Overview
+
+```
+Core Tables:
+- customers          → Customer accounts
+- owners             → Shop owner accounts
+- shops              → Shop profiles
+- shop_images       → Shop logos and images
+- refresh_tokens    → JWT refresh tokens
+
+Dynamic Product Tables (per shop):
+- {type}_{shop_id}_{shop_name}  → Product inventory
+  (electronics, grocery, cosmetics, clothing, bookstore)
+
+Transaction Tables:
+- orders            → Customer orders
+- order_items      → Order line items
+- wishlist         → Customer wishlists
+- shop_feedback   → Ratings and reviews
+- shop_hits        → Shop visit tracking
+- votes            → Product votes
+- products         → Customer-suggested products
+```
+
+---
+
+### Key Features Summary
+
+#### Customer Features
+✅ Voice-enabled shopping assistant  
+✅ Product search by name, category, brand  
+✅ Store navigation and location-based search  
+✅ Real-time pricing and stock availability  
+✅ Wishlist management  
+✅ Order placement and tracking  
+✅ Ratings and feedback  
+✅ Product suggestions ("Most Needed")  
+✅ AI-powered chatbot for product queries  
+
+#### Shop Owner Features
+✅ Dashboard with analytics  
+✅ Inventory management (CRUD operations)  
+✅ Order processing (approve/complete)  
+✅ Feedback management  
+✅ Shop profile updates  
+✅ Image management (logo + gallery)  
+✅ View analytics (hits, wishlists, wanted products)
