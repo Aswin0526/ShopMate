@@ -403,20 +403,19 @@ This section provides a comprehensive overview of the ShopMate application flow,
                            └──────┬───────┘
                                   │
                     ┌─────────────┴─────────────┐
-                    │                            │
-              ┌─────▼─────┐              ┌──────▼──────┐
+                    │                           │
+              ┌─────▼─────┐              ┌──────▼─────┐
               │ Customer  │              │   Shop     │
               │ Login     │              │   Owner    │
               └─────┬─────┘              │   Login    │
-                    │                    └──────┬──────┘
+                    │                    └──────┬─────┘
                     │                           │
-          ┌─────────▼──────────┐      ┌─────────▼──────────┐
-          │  Customer         │      │  Shop Owner        │
+          ┌─────────▼────────┐      ┌─────────▼──────────┐
+          │  Customer        │      │  Shop Owner        │
           │  Dashboard       │      │  Dashboard         │
           │ /customer/dash   │      │  /shop/dashboard   │
           └──────────────────┘      └────────────────────┘
 ```
-
 ---
 
 ### Authentication Pages
@@ -684,4 +683,3 @@ Transaction Tables:
 ✅ Feedback management  
 ✅ Shop profile updates  
 ✅ Image management (logo + gallery)  
-✅ View analytics (hits, wishlists, wanted products)
