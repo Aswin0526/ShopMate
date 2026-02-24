@@ -1,15 +1,29 @@
+# Web Framework
 flask
 flask-cors
+
+# Environment & Configuration
 python-dotenv
-google-generativeai
+
+# AI & LLM (Modern Stack)
 google-genai
-langchain
-langchain-community
+google-generativeai
 langchain-core
+langchain-community
 langchain-google-genai
+
+# Database & ORM
 sqlalchemy
+psycopg2-binary
+
+# Data Validation & Serialization
 pydantic
+
+# Machine Learning & NLP
 sentence-transformers
 torch
+scikit-learn
+
+# Utilities
 regex
-langchain-ollama
+python-dateutil

@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from flask_cors import CORS
 from sqlalchemy import create_engine
 from langchain_community.utilities import SQLDatabase
-from langchain_ollama import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_community.tools.sql_database.tool import QuerySQLDatabaseTool
@@ -16,6 +16,7 @@ import hashlib
 import json
 from typing import Optional, Dict, Tuple, List
 from pydantic import BaseModel, Field
+from google import genai
 from dotenv import load_dotenv
 
 # Configure logging
@@ -27,27 +28,13 @@ load_dotenv()
 # ─────────────────────────────────────────────
 # Environment & DB setup
 # ─────────────────────────────────────────────
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+GEMINI_API_KEY = os.getenv("GEMENI_API_KEY")
 DATABASE_URL = (
     f"postgresql+psycopg2://{os.getenv('user')}:{os.getenv('password')}"
     f"@{os.getenv('host')}:{os.getenv('port')}/{os.getenv('dbname')}?sslmode=require"
 )
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,        # Test connection before using it
-    pool_recycle=300,          # Recycle connections every 5 minutes
-    pool_size=5,
-    max_overflow=10,
-    connect_args={
-        "connect_timeout": 10,
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 5
-    }
-)
+engine = create_engine(DATABASE_URL)
 
 # These tables are ALWAYS blocked — no session can access them
 HARDCODED_RESTRICTED_TABLES = [
@@ -59,9 +46,9 @@ HARDCODED_RESTRICTED_TABLES = [
 # Full DB connection (used only for schema introspection internally)
 _full_db = SQLDatabase(engine, sample_rows_in_table_info=0)
 
-llm = ChatOllama(
-    model=OLLAMA_MODEL,
-    base_url=OLLAMA_BASE_URL,
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-lite",
+    google_api_key=GEMINI_API_KEY,
     temperature=0.3
 )
 
@@ -70,24 +57,14 @@ llm = ChatOllama(
 # ─────────────────────────────────────────────
 
 def get_all_db_tables() -> list[str]:
-    """Get every table name that actually exists in the database, with retry."""
-    import sqlalchemy
-    for attempt in range(3):
-        try:
-            with engine.connect() as conn:
-                result = conn.execute(
-                    sqlalchemy.text(
-                        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                    )
-                )
-                return [row[0] for row in result]
-        except Exception as e:
-            logger.warning(f"get_all_db_tables attempt {attempt+1} failed: {e}")
-            if attempt < 2:
-                time.sleep(1)
-            else:
-                logger.error("All retries exhausted for get_all_db_tables")
-                return []
+    """Get every table name that actually exists in the database."""
+    with engine.connect() as conn:
+        result = conn.execute(
+            __import__("sqlalchemy").text(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+            )
+        )
+        return [row[0] for row in result]
 
 
 def clean_sql(text: str) -> str:
@@ -162,21 +139,16 @@ def validate_and_execute_sql(sql: str, allowed_table: str) -> str:
         return f"TABLE_NOT_FOUND: The table '{allowed_lower}' does not exist."
 
     # 4. All clear — execute with a session-scoped DB view
-    for attempt in range(3):
-        try:
-            session_db = SQLDatabase(engine, include_tables=[allowed_lower], sample_rows_in_table_info=0)
-            tool = QuerySQLDatabaseTool(db=session_db)
-            logger.info(f"EXECUTING (allowed_table={allowed_lower}): {sql}")
-            result = tool.invoke(sql)
-            logger.info(f"RESULT PREVIEW: {str(result)[:300]}")
-            return result
-        except Exception as e:
-            logger.warning(f"SQL execute attempt {attempt+1} failed: {e}")
-            if attempt < 2:
-                time.sleep(1)
-            else:
-                logger.error(f"SQL execution error after retries: {e}")
-                return f"QUERY_ERROR: {str(e)}"
+    try:
+        session_db = SQLDatabase(engine, include_tables=[allowed_lower], sample_rows_in_table_info=0)
+        tool = QuerySQLDatabaseTool(db=session_db)
+        logger.info(f"EXECUTING (allowed_table={allowed_lower}): {sql}")
+        result = tool.invoke(sql)
+        logger.info(f"RESULT PREVIEW: {str(result)[:300]}")
+        return result
+    except Exception as e:
+        logger.error(f"SQL execution error: {e}")
+        return f"QUERY_ERROR: {str(e)}"
 
 
 # ─────────────────────────────────────────────
@@ -323,25 +295,15 @@ class ConversationalAgent:
         Never exposes schema for other tables.
         """
         allowed = self.table_name.lower()
-        for attempt in range(3):
-            try:
-                existing = [t.lower() for t in get_all_db_tables()]
-                if not existing:
-                    if attempt < 2:
-                        time.sleep(1)
-                        continue
-                    return f"Could not connect to database after retries."
-                if allowed not in existing:
-                    return f"Table '{allowed}' not found in database."
-                scoped_db = SQLDatabase(engine, include_tables=[allowed], sample_rows_in_table_info=2)
-                return scoped_db.get_table_info()
-            except Exception as e:
-                logger.warning(f"get_scoped_schema attempt {attempt+1} failed: {e}")
-                if attempt < 2:
-                    time.sleep(1)
-                else:
-                    logger.error(f"Schema fetch error: {e}")
-                    return f"Could not retrieve schema for table '{allowed}'."
+        try:
+            existing = [t.lower() for t in get_all_db_tables()]
+            if allowed not in existing:
+                return f"Table '{allowed}' not found in database. Available tables matching this shop: none."
+            scoped_db = SQLDatabase(engine, include_tables=[allowed], sample_rows_in_table_info=2)
+            return scoped_db.get_table_info()
+        except Exception as e:
+            logger.error(f"Schema fetch error: {e}")
+            return f"Could not retrieve schema for table '{allowed}'."
 
     def orchestrate(self, user_message: str) -> str:
         """Main entry: plan → (optionally query DB) → format response."""
@@ -484,7 +446,7 @@ def get_session_data(session_id: Optional[str] = None) -> Tuple[Optional[Dict], 
 
     if session_id not in chat_sessions:
         chat_sessions[session_id] = {
-            "client": None,  # Ollama is stateless — no client object needed
+            "client": genai.Client(api_key=GEMINI_API_KEY),
             "chat_history": [],
             "shopName": None,
             "city": None,
@@ -532,7 +494,8 @@ def start_chat():
     shop_name = session_data.get("shopName", "the store")
     product_type = session_data.get("productType", "products")
     city = session_data.get("city", "")
-    
+
+    # Generate a warm opening message
     welcome_llm = llm.invoke([{
         "role": "user",
         "content": (

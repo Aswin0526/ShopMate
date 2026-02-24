@@ -1,7 +1,6 @@
 from flask import Flask, session, request, jsonify, Response
 from datetime import timedelta, datetime
 from flask_cors import CORS
-import google.generativeai as genai
 from sqlalchemy import create_engine
 from langchain_community.utilities import SQLDatabase
 from langchain_google_genai import ChatGoogleGenerativeAI

@@ -403,17 +403,6 @@ This section provides a comprehensive overview of the ShopMate application flow,
                            └──────┬───────┘
                                   │
                     ┌─────────────┴─────────────┐
-<<<<<<< HEAD
-                    │                           │
-              ┌─────▼─────┐              ┌──────▼─────┐
-              │ Customer  │              │   Shop     │
-              │ Login     │              │   Owner    │
-              └─────┬─────┘              │   Login    │
-                    │                    └──────┬─────┘
-                    │                           │
-          ┌─────────▼────────┐      ┌─────────▼──────────┐
-          │  Customer        │      │  Shop Owner        │
-=======
                     │                            │
               ┌─────▼─────┐              ┌──────▼──────┐
               │ Customer  │              │   Shop     │
@@ -423,15 +412,10 @@ This section provides a comprehensive overview of the ShopMate application flow,
                     │                           │
           ┌─────────▼──────────┐      ┌─────────▼──────────┐
           │  Customer         │      │  Shop Owner        │
->>>>>>> d08b542108b800a4b61a0dbe69f3e5f079bb0b8b
           │  Dashboard       │      │  Dashboard         │
           │ /customer/dash   │      │  /shop/dashboard   │
           └──────────────────┘      └────────────────────┘
 ```
-<<<<<<< HEAD
-=======
-
->>>>>>> d08b542108b800a4b61a0dbe69f3e5f079bb0b8b
 ---
 
 ### Authentication Pages
