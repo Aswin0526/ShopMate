@@ -2,7 +2,7 @@
 
 A voice-enabled assistant to guide customers through store navigation and provide product information when store staff are unavailable, enhancing self-service and customer experience.
 
-<img src="ps.png">
+<img src="./flowcharts/ps.png">
 
 ---
 
@@ -615,9 +615,9 @@ Transaction Tables:
 
 #### Web UI 
 
-<img src="UI1.png">
+<img src="./flowcharts/UI1.png">
 ![alt text](image.png)
 
-<img src="UI2.png">
+<img src="./flowcharts/UI2.png">
 
-<img src="UI3.png">
+<img src="./flowcharts/UI3.png">
