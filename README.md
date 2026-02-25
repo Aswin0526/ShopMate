@@ -335,19 +335,19 @@ This section provides a comprehensive overview of the ShopMate application flow,
                            │   Page       │
                            └──────┬───────┘
                                   │
-                    ┌─────────────┴─────────────┐
-                    │                            │
-              ┌─────▼─────┐              ┌──────▼──────┐
-              │ Customer  │              │   Shop     │
-              │ Login     │              │   Owner    │
-              └─────┬─────┘              │   Login    │
-                    │                    └──────┬──────┘
-                    │                           │
-          ┌─────────▼──────────┐      ┌─────────▼──────────┐
-          │  Customer         │      │  Shop Owner        │
-          │  Dashboard       │      │  Dashboard         │
-          │ /customer/dash   │      │  /shop/dashboard   │
-          └──────────────────┘      └────────────────────┘
+                    ┌─────────────┴────────────┐
+                    │                          │
+              ┌─────▼─────┐              ┌─────▼────┐
+              │ Customer  │              │   Shop   │
+              │ Login     │              │   Owner  │
+              └─────┬─────┘              │   Login  │
+                    │                    └────┬─────┘
+                    │                         │
+          ┌─────────▼────────┐      ┌─────────▼────────┐
+          │  Customer        │      │  Shop Owner      │
+          │  Dashboard       │      │  Dashboard       │
+          │ /customer/dash   │      │  /shop/dashboard │
+          └──────────────────┘      └──────────────────┘
 ```
 ---
 
@@ -522,7 +522,7 @@ User Input (Voice/Text)
 │  Intent           │
 │  Classification   │
 │  (Sentence        │
-│  Transformers)   │
+│  Transformers)    │
 └────────┬──────────┘
          │
     ┌────┴────┬─────────────────┬──────────────────┐
@@ -531,7 +531,7 @@ User Input (Voice/Text)
 ┌────────┐ ┌──────────┐ ┌─────────────┐ ┌─────────────────┐
 │ SMALL  │ │  DATA    │ │ OUT OF      │ │  (Default)      │
 │ TALK   │ │  QUERY   │ │ DOMAIN      │ │  SMALL TALK     │
-└───┬────┘ └────┬─────┘ └──────┬──────┘ └─────────────────┘
+└───┬────┘ └────┬─────┘ └───────┬─────┘ └─────────────────┘
     │           │               │
     │           ▼               │
     │    ┌─────────────┐        │
