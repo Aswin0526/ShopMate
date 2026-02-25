@@ -6,74 +6,7 @@ A voice-enabled assistant to guide customers through store navigation and provid
 
 ## Architecture Diagram
 
-```mermaid
-flowchart TB
-    subgraph CLIENT["CLIENT LAYER"]
-        FRONTEND["Frontend (React + Vite)
-        - Login Page
-        - Register Page
-        - Customer Dashboard
-        - Shop Owner Dashboard
-        - Chat Component
-        - Voice Component
-        - Map Component
-        - Overview Component
-        - Stock Component
-        - Preorder Component
-        - Update Component
-        - ShopDetail Component"]
-    end
-
-    CLIENT -->|REST API| BACKEND
-
-    subgraph BACKEND["BACKEND LAYER"]
-        EXPRESS["Express.js Server
-        - Routes (/customers, /owners, /locations, /auth/refresh)
-        - Controllers (auth, customer, owner)
-        - Middleware (JWT Auth)
-        - Database Config
-        - Utils (token, validation)"]
-    end
-
-    BACKEND -->|HTTP/REST| CHATBOT
-
-    subgraph CHATBOT["AI CHATBOT LAYER"]
-        FLASK["Flask Server
-        - Intent Classification (Small Talk, Data Query, Out of Domain)
-        - Sentence Transformers
-        - LangChain Pipeline (Gemini LLM, SQL Generator, Query Executor, Response Formatter)
-        - Session Management (Chat Sessions, History, Rate Limiting)
-        - API Endpoints (/start-chat, /transcribe, /chat-history, /clear-chat)"]
-    end
-
-    CHATBOT -->|SQL Queries| DATABASE
-
-    subgraph DATABASE["DATABASE LAYER"]
-        DB["PostgreSQL
-        - customers
-        - owners
-        - products
-        - orders
-        - locations
-        - stocks
-        - categories
-        - wishlist
-        - order_items
-        - refresh_tokens
-        - shop-specific tables"]
-    end
-
-    style CLIENT fill:#e1f5fe,stroke:#01579b
-    style FRONTEND fill:#b3e5fc,stroke:#0277bd
-    style BACKEND fill:#e8f5e9,stroke:#2e7d32
-    style EXPRESS fill:#c8e6c9,stroke:#388e3c
-    style CHATBOT fill:#fff3e0,stroke:#e65100
-    style FLASK fill:#ffe0b2,stroke:#f57c00
-    style DATABASE fill:#f3e5f5,stroke:#7b1fa2
-    style DB fill:#ede7f6,stroke:#512da8
-```
-
----
+<img src="./flowcharts/image.png" />
 
 ## Tech Stack
 
