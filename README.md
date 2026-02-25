@@ -2,11 +2,13 @@
 
 A voice-enabled assistant to guide customers through store navigation and provide product information when store staff are unavailable, enhancing self-service and customer experience.
 
+<img src="ps.png">
+
 ---
 
 ## Architecture Diagram
 
-<img src="./flowcharts/image.png" />
+<img src="./flowcharts/architecture.png" />
 
 ## Tech Stack
 
@@ -240,7 +242,7 @@ bash
 bash
    cd chatbot
    pip install -r requirements.txt
-   python server.py
+   python userver.py
    
 ```
 
@@ -315,13 +317,6 @@ VITE_CHATBOT_URL=http://localhost:3000
 # Optional: Google Maps API (if used)
 VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
-
-
-## License
-
-MIT License
-
----
 
 ## Complete Process Flow
 
@@ -616,3 +611,13 @@ Transaction Tables:
 ✅ Feedback management  
 ✅ Shop profile updates  
 ✅ Image management (logo + gallery)  
+
+
+#### Web UI 
+
+<img src="UI1.png">
+![alt text](image.png)
+
+<img src="UI2.png">
+
+<img src="UI3.png">
