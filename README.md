@@ -313,9 +313,6 @@ Create a `.env` file in the `frontend/` directory:
 # Vite Configuration
 VITE_API_URL=http://localhost:5000
 VITE_CHATBOT_URL=http://localhost:3000
-
-# Optional: Google Maps API (if used)
-VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
 
 ## Complete Process Flow

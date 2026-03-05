@@ -44,9 +44,9 @@ function Chat({ custData, onClose, onVoiceOpen }) {
         const statesData = await statesRes.json();
         const countriesData = await countriesRes.json();
 
-        if (citiesData.success) setCities(['Any', ...citiesData.data]);
-        if (statesData.success) setStates(['Any', ...statesData.data]);
-        if (countriesData.success) setCountries(['Any', ...countriesData.data]);
+        if (citiesData.success) setCities([...citiesData.data]);
+        if (statesData.success) setStates([ ...statesData.data]);
+        if (countriesData.success) setCountries([...countriesData.data]);
         
       } catch (error) {
         console.error('Error fetching dropdown options:', error);
@@ -73,7 +73,8 @@ function Chat({ custData, onClose, onVoiceOpen }) {
         const data = await response.json();
         
         if (data.success) {
-          setShops([{ id: '', name: 'Any' }, ...data.data]);
+
+          setShops([{ id: ''}, ...data.data]);
         }
       } catch (error) {
         console.error('Error fetching shops:', error);
@@ -311,12 +312,12 @@ function Chat({ custData, onClose, onVoiceOpen }) {
         <div className="chat-summary-grid">
           <div className="chat-summary-item">
             <div className="chat-summary-label">Product Type</div>
-            <div className="chat-summary-value">{getSelectedProductName() || 'Any'}</div>
+            <div className="chat-summary-value">{getSelectedProductName()}</div>
             <button className="chat-summary-edit" onClick={() => handleEditStep(1)}>Edit</button>
           </div>
           <div className="chat-summary-item">
             <div className="chat-summary-label">City</div>
-            <div className="chat-summary-value">{formData.city || 'Any'}</div>
+            <div className="chat-summary-value">{formData.city}</div>
             <button className="chat-summary-edit" onClick={() => handleEditStep(2)}>Edit</button>
           </div>
           <div className="chat-summary-item">
@@ -331,7 +332,7 @@ function Chat({ custData, onClose, onVoiceOpen }) {
           </div>
           <div className="chat-summary-item">
             <div className="chat-summary-label">Shop Name</div>
-            <div className="chat-summary-value">{formData.shopName || 'Any'}</div>
+            <div className="chat-summary-value">{formData.shopName}</div>
             <button className="chat-summary-edit" onClick={() => handleEditStep(3)}>Edit</button>
           </div>
         </div>
