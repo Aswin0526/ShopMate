@@ -2189,6 +2189,119 @@ const getMostWantedProducts = async (req, res) => {
   }
 };
 
+// Get conversation analyses for a shop
+const getConversationAnalyses = async (req, res) => {
+  try {
+    const { 
+      shop_id, 
+      search = '', 
+      outcome = '', 
+      page = 1, 
+      limit = 10 
+    } = req.body;
+
+    if (!shop_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Shop ID is required"
+      });
+    }
+
+    const offset = (page - 1) * limit;
+    
+    // Build query with filters
+    let whereConditions = ['shop_id = $1'];
+    let queryParams = [shop_id];
+    let paramIndex = 2;
+
+    // Search filter on summary or customer_intent
+    if (search && search.trim()) {
+      whereConditions.push(`(summary ILIKE $${paramIndex} OR customer_intent ILIKE $${paramIndex})`);
+      queryParams.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // Outcome filter
+    if (outcome && outcome.trim()) {
+      whereConditions.push(`outcome = $${paramIndex}`);
+      queryParams.push(outcome.trim());
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM conversation_analyses 
+      WHERE ${whereClause}
+    `;
+    const countResult = await pool.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Get paginated data
+    const dataQuery = `
+      SELECT 
+        id,
+        session_id,
+        user_id,
+        shop_id,
+        shop_name,
+        city,
+        state,
+        product_type,
+        started_at,
+        ended_at,
+        duration_minutes,
+        turn_count,
+        outcome,
+        final_stage,
+        summary,
+        customer_intent,
+        sentiment_arc,
+        stage_progression,
+        recommended_followup,
+        products_discussed,
+        key_insights,
+        missed_opportunities,
+        stages_reached,
+        images_shared,
+        sql_queries_made,
+        created_at
+      FROM conversation_analyses
+      WHERE ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    queryParams.push(limit, offset);
+    const result = await pool.query(dataQuery, queryParams);
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        conversations: result.rows,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Get conversation analyses error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
 
 module.exports = {
   registerOwner,
@@ -2214,5 +2327,6 @@ module.exports = {
   updateShopProfile,
   getShopHitCount,
   WishListCount,
-  getMostWantedProducts
+  getMostWantedProducts,
+  getConversationAnalyses
 };

@@ -28,7 +28,6 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Fetch all dropdown options on mount
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       try {

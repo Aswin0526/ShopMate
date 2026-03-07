@@ -32,6 +32,14 @@ const Overview = (data) => {
     const [selectedShop, setSelectedShop] = useState(null);
     const [wishListCount, setWishListCount] = useState(null);
     const [mostWantedProducts, setMostWantedProducts] = useState([]);
+    
+    // Conversation Analyses state
+    const [conversations, setConversations] = useState([]);
+    const [convLoading, setConvLoading] = useState(false);
+    const [convPagination, setConvPagination] = useState({ total: 0, page: 1, limit: 10, totalPages: 0 });
+    const [convFilters, setConvFilters] = useState({ search: '', outcome: '' });
+    const [showConvDrawer, setShowConvDrawer] = useState(false);
+    const [selectedConversation, setSelectedConversation] = useState(null);
 
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
@@ -254,6 +262,82 @@ useEffect(() => {
     }
 
 }, [data]);
+
+// Fetch conversation analyses
+useEffect(() => {
+    const fetchConversationAnalyses = async () => {
+        if (!shopData) return;
+        
+        const shopId = shopData.shop_id || shopData.id;
+        if (!shopId) return;
+
+        setConvLoading(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL}/api/owners/conversation-analyses`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        shop_id: shopId,
+                        search: convFilters.search,
+                        outcome: convFilters.outcome,
+                        page: convPagination.page,
+                        limit: convPagination.limit
+                    }),
+                }
+            );
+
+            const result = await response.json();
+            console.log("Conversation Analyses:", result);
+            
+            if (result.success && result.data) {
+                setConversations(result.data.conversations || []);
+                setConvPagination(prev => ({
+                    ...prev,
+                    total: result.data.pagination?.total || 0,
+                    totalPages: result.data.pagination?.totalPages || 0
+                }));
+            }
+        } catch (err) {
+            console.error("Error fetching conversation analyses:", err);
+        } finally {
+            setConvLoading(false);
+        }
+    };
+
+    fetchConversationAnalyses();
+}, [shopData, convFilters, convPagination.page]);
+
+// Handle filter changes
+const handleConvFilterChange = (e) => {
+    const { name, value } = e.target;
+    setConvFilters(prev => ({ ...prev, [name]: value }));
+    setConvPagination(prev => ({ ...prev, page: 1 }));
+};
+
+const handleConvFilterReset = () => {
+    setConvFilters({ search: '', outcome: '' });
+    setConvPagination(prev => ({ ...prev, page: 1 }));
+};
+
+const handleConvPageChange = (newPage) => {
+    setConvPagination(prev => ({ ...prev, page: newPage }));
+};
+
+const handleConvCardClick = (conv) => {
+    setSelectedConversation(conv);
+    setShowConvDrawer(true);
+};
+
+const handleCloseConvDrawer = () => {
+    setShowConvDrawer(false);
+    setSelectedConversation(null);
+};
 
 // Prepare top 5 data for bar graph
     const topFiveShops = [...graphData]
@@ -650,6 +734,149 @@ useEffect(() => {
                                     </div>
                                 )}
                             </div>
+
+                            {/* AI Conversations Section */}
+                            <div className="ov-conv-section" style={{ marginTop: '30px' }}>
+                                <div className="ov-conv-header">
+                                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
+                                        🤖 AI Conversations Analysis
+                                    </h3>
+                                    <span className="ov-conv-total">{convPagination.total} conversations</span>
+                                </div>
+
+                                {/* Filters */}
+                                <div className="ov-filters">
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        placeholder="Search by summary or intent..."
+                                        className="ov-filter-input ov-filter-search"
+                                        value={convFilters.search}
+                                        onChange={handleConvFilterChange}
+                                    />
+                                    <select
+                                        name="outcome"
+                                        className="ov-filter-input"
+                                        value={convFilters.outcome}
+                                        onChange={handleConvFilterChange}
+                                        style={{ minWidth: '140px' }}
+                                    >
+                                        <option value="">All Outcomes</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="abandoned">Abandoned</option>
+                                        <option value="escalated">Escalated</option>
+                                    </select>
+                                    <button className="ov-filter-reset" onClick={handleConvFilterReset}>
+                                        Reset
+                                    </button>
+                                </div>
+
+                                {/* KPI Cards */}
+                                <div className="ov-kpi-row">
+                                    <div className="ov-kpi-card">
+                                        <span className="ov-kpi-icon">💬</span>
+                                        <div>
+                                            <div className="ov-kpi-value">{convPagination.total}</div>
+                                            <div className="ov-kpi-label">Total Conversations</div>
+                                        </div>
+                                    </div>
+                                    <div className="ov-kpi-card">
+                                        <span className="ov-kpi-icon">⏱️</span>
+                                        <div>
+                                            <div className="ov-kpi-value">
+                                                {conversations.length > 0 
+                                                    ? Math.round(conversations.reduce((acc, c) => acc + (parseFloat(c.duration_minutes) || 0), 0) / conversations.length * 10) / 10
+                                                    : 0}
+                                            </div>
+                                            <div className="ov-kpi-label">Avg Duration (min)</div>
+                                        </div>
+                                    </div>
+                                    <div className="ov-kpi-card">
+                                        <span className="ov-kpi-icon">🔄</span>
+                                        <div>
+                                            <div className="ov-kpi-value">
+                                                {conversations.length > 0 
+                                                    ? Math.round(conversations.reduce((acc, c) => acc + (parseInt(c.turn_count) || 0), 0) / conversations.length)
+                                                    : 0}
+                                            </div>
+                                            <div className="ov-kpi-label">Avg Turns</div>
+                                        </div>
+                                    </div>
+                                    <div className="ov-kpi-card">
+                                        <span className="ov-kpi-icon">✅</span>
+                                        <div>
+                                            <div className="ov-kpi-value">
+                                                {conversations.filter(c => c.outcome === 'completed').length}
+                                            </div>
+                                            <div className="ov-kpi-label">Completed</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Conversation List */}
+                                <div className="ov-conv-list">
+                                    {convLoading ? (
+                                        <div className="ov-conv-loading">
+                                            <span className="loading-spinner" style={{ width: '20px', height: '20px' }}></span>
+                                            Loading conversations...
+                                        </div>
+                                    ) : conversations.length === 0 ? (
+                                        <p className="no-data">No conversation analyses found</p>
+                                    ) : (
+                                        conversations.map((conv) => (
+                                            <div 
+                                                key={conv.id} 
+                                                className="ov-conv-card"
+                                                onClick={() => handleConvCardClick(conv)}
+                                            >
+                                                <div className="ov-conv-card-top">
+                                                    <span className={`ov-badge ov-outcome-${conv.outcome || 'unknown'}`}>
+                                                        {conv.outcome || 'Unknown'}
+                                                    </span>
+                                                    <span className="ov-stage-pill">{conv.final_stage || 'N/A'}</span>
+                                                    <span className="ov-sentiment-pill">
+                                                        {conv.sentiment_arc || 'N/A'}
+                                                    </span>
+                                                    <span className="ov-conv-meta" style={{ marginLeft: 'auto' }}>
+                                                        {conv.created_at ? new Date(conv.created_at).toLocaleDateString() : 'N/A'}
+                                                    </span>
+                                                </div>
+                                                <p className="ov-conv-summary">{conv.summary || 'No summary available'}</p>
+                                                <div className="ov-conv-meta" style={{ marginTop: '8px' }}>
+                                                    <span>⏱️ {conv.duration_minutes || 0} min</span>
+                                                    <span style={{ marginLeft: '12px' }}>🔄 {conv.turn_count || 0} turns</span>
+                                                    {conv.products_discussed && conv.products_discussed.length > 0 && (
+                                                        <span style={{ marginLeft: '12px' }}>📦 {conv.products_discussed.length} products</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Pagination */}
+                                {convPagination.totalPages > 1 && (
+                                    <div className="ov-pagination">
+                                        <button 
+                                            className="ov-page-btn"
+                                            disabled={convPagination.page === 1}
+                                            onClick={() => handleConvPageChange(convPagination.page - 1)}
+                                        >
+                                            Previous
+                                        </button>
+                                        <span className="ov-page-info">
+                                            Page {convPagination.page} of {convPagination.totalPages}
+                                        </span>
+                                        <button 
+                                            className="ov-page-btn"
+                                            disabled={convPagination.page >= convPagination.totalPages}
+                                            onClick={() => handleConvPageChange(convPagination.page + 1)}
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </section>
                     </div>
 
@@ -691,4 +918,3 @@ useEffect(() => {
 }
 
 export default Overview;
-

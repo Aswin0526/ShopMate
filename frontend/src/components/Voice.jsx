@@ -17,6 +17,7 @@ const Voice = ({ onClose }) => {
   const [status, setStatus]                     = useState("Tap to speak");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [isPlayingAudio, setIsPlayingAudio]     = useState(false);
+  const [isAnalysing, setIsAnalysing]           = useState(false);
 
   // ── Image state ──────────────────────────────────────────────────────────
   const [uploadedImage, setUploadedImage]   = useState(null);
@@ -226,7 +227,8 @@ const Voice = ({ onClose }) => {
     SpeechRecognition.startListening({ continuous: true, language: "en-IN" });
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(async () => {
+    // Stop all audio immediately
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsPlayingAudio(false);
     setIsMuted(false);
@@ -236,8 +238,84 @@ const Voice = ({ onClose }) => {
     if (pauseTimeoutRef.current)   { clearTimeout(pauseTimeoutRef.current);   pauseTimeoutRef.current   = null; }
     if (currentTimeoutRef.current) { clearTimeout(currentTimeoutRef.current); currentTimeoutRef.current = null; }
     if (listening) SpeechRecognition.stopListening();
-    onClose();
-  };
+
+    // ── Post-conversation analysis ───────────────────────────────────────
+    const session_id = getSessionId();
+
+    try {
+      setIsAnalysing(true);
+      console.log("Requesting conversation analysis...");
+
+      const res = await fetch(`${import.meta.env.VITE_CHATBOT_URL}/analyze-session`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "X-Session-ID": session_id }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+
+        if (data.analysis) {
+          // ── Build a rich record to store locally ──────────────────────
+          const record = {
+            session_id,
+            analysed_at:  new Date().toISOString(),
+            shop_name:    data.analysis?.shop_name   || null,
+            shop_id:      data.analysis?.shop_id     || null,
+            outcome:      data.analysis?.outcome,
+            final_stage:  data.analysis?.final_stage,
+            summary:      data.analysis?.summary,
+            duration_minutes: data.analysis?.metrics?.duration_minutes,
+            turn_count:   data.analysis?.metrics?.turns,
+            key_insights: data.analysis?.key_insights || [],
+            products_discussed: data.analysis?.products_discussed || [],
+            sentiment_arc: data.analysis?.sentiment_arc,
+            recommended_followup: data.analysis?.recommended_followup,
+            full_analysis: data.analysis
+          };
+          localStorage.removeItem("session_id");
+          localStorage.removeItem("shopmate_analyses");
+          // ── Append to localStorage list ────────────────────────────────
+          // const existing = JSON.parse(localStorage.getItem("shopmate_analyses") || "[]");
+          // existing.push(record);
+          // // Keep last 50 analyses
+          // if (existing.length > 50) existing.splice(0, existing.length - 50);
+          // localStorage.setItem("shopmate_analyses", JSON.stringify(existing));
+
+          // console.log("Analysis stored. Total in localStorage:", existing.length);
+          // console.table({
+          //   "Session":    session_id.slice(0, 8),
+          //   "Outcome":    record.outcome,
+          //   "Stage":      record.final_stage,
+          //   "Turns":      record.turn_count,
+          //   "Duration":   `${record.duration_minutes}m`,
+          //   "Sentiment":  record.sentiment_arc,
+          //   "Summary":    record.summary
+          // });
+
+          // if (record.key_insights?.length) {
+          //   console.group("Key Insights");
+          //   record.key_insights.forEach((ins, i) => console.log(`${i+1}. ${ins}`));
+          //   console.groupEnd();
+          // }
+
+          // if (record.products_discussed?.length) {
+          //   console.log("Products discussed:", record.products_discussed.join(", "));
+          // }
+
+          // if (record.recommended_followup) {
+          //   console.log("Recommended follow-up:", record.recommended_followup);
+          // }
+        }
+      } else {
+        console.warn("Analysis request failed:", res.status);
+      }
+    } catch (err) {
+      console.warn("Analysis error (non-blocking):", err);
+    } finally {
+      setIsAnalysing(false);
+      onClose();
+    }
+  }, [listening, getSessionId, onClose]);
 
   // ── Browser support ──────────────────────────────────────────────────────
   if (!browserSupportsSpeechRecognition) {
@@ -383,6 +461,18 @@ const Voice = ({ onClose }) => {
           )}
 
         </div>{/* end voice-content */}
+
+        {/* ── Analysing overlay ── */}
+        {isAnalysing && (
+          <div className="voice-analysing-overlay">
+            <div className="voice-analysing-card">
+              <div className="voice-analysing-spinner" />
+              <p className="voice-analysing-title">Analysing conversation...</p>
+              <p className="voice-analysing-sub">Generating insights from your session</p>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

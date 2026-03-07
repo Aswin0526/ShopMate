@@ -21,11 +21,15 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+# ─────────────────────────────────────────────
+# Environment & DB setup
+# ─────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMENI_API_KEY")
 DATABASE_URL = (
     f"postgresql+psycopg2://{os.getenv('user')}:{os.getenv('password')}"
@@ -47,14 +51,17 @@ engine = create_engine(
     }
 )
 
+# These tables are ALWAYS blocked — no session can access them
 HARDCODED_RESTRICTED_TABLES = [
     "customers", "orders", "order_items", "owners",
     "refresh_tokens", "wishlist", "users", "payments",
     "auth_tokens", "sessions", "admin"
 ]
 
+# Full DB connection (used only for schema introspection internally)
 _full_db = SQLDatabase(engine, sample_rows_in_table_info=0)
 
+# ── Text LLM (Gemini Flash) ───────────────────────────────────────────────────
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash-lite",
     google_api_key=GEMINI_API_KEY,
@@ -307,17 +314,49 @@ Image Analysis: {image_analysis}
 
 Write the FINAL response to: "{user_message}"
 
-Rules:
+## CRITICAL RULES — NEVER BREAK THESE:
+1. ONLY use product data from SQL Results above. NEVER invent, assume, or recall products from your training data.
+2. If SQL Results is empty, "[NO_RESULTS]", or contains no product rows — you MUST say the product is not available in this shop. Do NOT suggest products that are not in the SQL Results.
+3. If SQL Results has data — use ONLY those exact products, prices, and details. Do not add extra products.
+4. NEVER say things like "we have the MacBook Pro" unless that exact product appears in SQL Results.
+5. If you are unsure whether a product exists in the shop — say you'll check and ask the customer to rephrase.
+
+## FORMAT RULES:
 - Natural, conversational language
 - NO tables, NO pipe characters, NO asterisks
 - Use numbered lists or "First... Second... Also..." style
-- Highlight prices, features, availability naturally
+- Highlight prices, features, availability from SQL data naturally
 - If image was analyzed, reference what you saw to make it personal
 - End with a helpful question or next step
-- If SQL returned nothing, say so politely and offer alternatives
-- 2-5 sentences for simple answers, more for comparisons/image responses
+- 2-5 sentences for simple answers, more for comparisons
 """
 
+
+
+def is_empty_sql_result(result: str) -> bool:
+    """
+    Detect if a SQL result genuinely has no data rows.
+    Handles: empty string, LangChain empty tuple string, whitespace-only, 
+    error strings, single-bracket results.
+    """
+    if not result:
+        return True
+    r = result.strip()
+    # LangChain returns these for empty queries
+    empty_patterns = [
+        "", "[]", "()", "None", "no results", "0 rows",
+        "NO_QUERY", "[]\n", "(\n)"
+    ]
+    if r.lower() in [p.lower() for p in empty_patterns]:
+        return True
+    # LangChain tuple format with no data: just header line, no data lines
+    lines = [l.strip() for l in r.split("\n") if l.strip()]
+    if len(lines) == 0:
+        return True
+    # All lines are just separators or the result is only punctuation
+    if all(set(l) <= set("-+|= ") for l in lines):
+        return True
+    return False
 
 # ─────────────────────────────────────────────
 # Conversational Agent
@@ -434,17 +473,36 @@ class ConversationalAgent:
 
         # ── Step 3: Execute SQL through security gate ────────────────────
         sql_results = ""
+        sql_was_empty = False
+
         if plan.get("needs_sql") and plan.get("sql_query"):
             sql_results = validate_and_execute_sql(plan["sql_query"], allowed_table)
             if sql_results.startswith("BLOCKED") or sql_results.startswith("TABLE_NOT_FOUND"):
                 logger.warning(f"SQL blocked: {sql_results}")
-                sql_results = f"[DATA UNAVAILABLE: {sql_results}]"
+                sql_results = "[NO_RESULTS: Data access blocked]"
+                sql_was_empty = True
             elif sql_results.startswith("QUERY_ERROR"):
                 logger.error(f"SQL error: {sql_results}")
-                sql_results = "[DATA UNAVAILABLE: Query failed]"
+                sql_results = "[NO_RESULTS: Query failed]"
+                sql_was_empty = True
+            elif is_empty_sql_result(sql_results):
+                logger.info("SQL returned empty result — flagging for honest response")
+                sql_results = "[NO_RESULTS: This product or category was not found in this shop's inventory]"
+                sql_was_empty = True
+            else:
+                logger.info(f"SQL returned data: {sql_results[:120]}")
 
         # ── Step 4: Format final conversational response ─────────────────
-        formatter_prompt = RESPONSE_FORMATTER_PROMPT.format(
+        # If SQL was empty, prepend a hard instruction so LLM cannot hallucinate
+        empty_guard = (
+            "IMPORTANT: The database returned NO results for this query. "
+            "You MUST tell the customer this product is not available in this shop. "
+            "Do NOT mention or suggest any specific product names, models, or prices. "
+            "Only offer to help them find something else that IS in stock.\n\n"
+            if sql_was_empty else ""
+        )
+
+        formatter_prompt = empty_guard + RESPONSE_FORMATTER_PROMPT.format(
             shop_name      = self.session.get("shopName", "Our Shop"),
             city           = self.session.get("city", ""),
             state          = self.session.get("state", ""),
@@ -509,6 +567,167 @@ SESSION_TIMEOUT    = 3600
 _last_request_time      = datetime.min
 _last_request_text_hash: Optional[str] = None
 chat_sessions: Dict[str, Dict] = {}
+
+# ─────────────────────────────────────────────
+# Conversation Analysis — DB persistence
+# ─────────────────────────────────────────────
+
+def save_analysis_to_db(record: dict) -> Optional[int]:
+    """
+    Insert one conversation analysis record into conversation_analyses table.
+    Returns the new row id, or None on failure.
+    """
+    import sqlalchemy
+    sql = sqlalchemy.text("""
+        INSERT INTO conversation_analyses (
+            session_id, user_id, shop_id, shop_name,
+            city, state, country, product_type,
+            started_at, ended_at, duration_minutes, turn_count,
+            outcome, final_stage, summary, customer_intent,
+            sentiment_arc, stage_progression,
+            products_discussed, key_insights,
+            missed_opportunities, recommended_followup,
+            images_shared, sql_queries_made,
+            stages_reached, full_analysis, conversation_transcript
+        ) VALUES (
+            :session_id, :user_id, :shop_id, :shop_name,
+            :city, :state, :country, :product_type,
+            :started_at, :ended_at, :duration_minutes, :turn_count,
+            :outcome, :final_stage, :summary, :customer_intent,
+            :sentiment_arc, :stage_progression,
+            :products_discussed, :key_insights,
+            :missed_opportunities, :recommended_followup,
+            :images_shared, :sql_queries_made,
+            :stages_reached, :full_analysis, :conversation_transcript
+        )
+        RETURNING id
+    """)
+
+    metrics = record.get("analysis", {}).get("metrics", {})
+    a       = record.get("analysis", {})
+
+    params = {
+        "session_id":             record.get("session_id"),
+        "user_id":                record.get("user_id"),
+        "shop_id":                str(record.get("shop_id", "")),
+        "shop_name":              record.get("shop_name"),
+        "city":                   record.get("city"),
+        "state":                  record.get("state"),
+        "country":                record.get("country"),
+        "product_type":           record.get("product_type"),
+        "started_at":             record.get("started_at"),
+        "ended_at":               record.get("ended_at"),
+        "duration_minutes":       record.get("duration_minutes", 0),
+        "turn_count":             record.get("turn_count", 0),
+        "outcome":                a.get("outcome", "UNKNOWN"),
+        "final_stage":            a.get("final_stage", "UNKNOWN"),
+        "summary":                a.get("summary", ""),
+        "customer_intent":        a.get("customer_intent", ""),
+        "sentiment_arc":          a.get("sentiment_arc", ""),
+        "stage_progression":      metrics.get("stage_progression", ""),
+        "products_discussed":     json.dumps(a.get("products_discussed", [])),
+        "key_insights":           json.dumps(a.get("key_insights", [])),
+        "missed_opportunities":   json.dumps(a.get("missed_opportunities", [])),
+        "recommended_followup":   a.get("recommended_followup", ""),
+        "images_shared":          metrics.get("images_shared", 0),
+        "sql_queries_made":       metrics.get("sql_queries_made", 0),
+        "stages_reached":         json.dumps(metrics.get("stages_reached", [])),
+        "full_analysis":          json.dumps(a),
+        "conversation_transcript":json.dumps(record.get("conversation", []))
+    }
+
+    for attempt in range(3):
+        try:
+            with engine.begin() as conn:
+                result = conn.execute(sql, params)
+                row_id = result.fetchone()[0]
+                logger.info(f"Analysis saved to DB: id={row_id}, session={record.get('session_id','')[:8]}")
+                return row_id
+        except Exception as e:
+            logger.warning(f"save_analysis_to_db attempt {attempt+1} failed: {e}")
+            if attempt < 2:
+                time.sleep(1)
+            else:
+                logger.error(f"Failed to save analysis after 3 attempts: {e}")
+                return None
+
+
+def fetch_analyses_from_db(shop_id: Optional[str] = None, limit: int = 100) -> list:
+    """Fetch analyses from DB, optionally filtered by shop_id."""
+    import sqlalchemy
+    try:
+        if shop_id:
+            sql = sqlalchemy.text("""
+                SELECT id, session_id, user_id, shop_id, shop_name, city, state,
+                       started_at, ended_at, duration_minutes, turn_count,
+                       outcome, final_stage, summary, customer_intent,
+                       sentiment_arc, products_discussed, key_insights,
+                       recommended_followup, created_at
+                FROM conversation_analyses
+                WHERE shop_id = :shop_id
+                ORDER BY created_at DESC
+                LIMIT :limit
+            """)
+            params = {"shop_id": str(shop_id), "limit": limit}
+        else:
+            sql = sqlalchemy.text("""
+                SELECT id, session_id, user_id, shop_id, shop_name, city, state,
+                       started_at, ended_at, duration_minutes, turn_count,
+                       outcome, final_stage, summary, customer_intent,
+                       sentiment_arc, products_discussed, key_insights,
+                       recommended_followup, created_at
+                FROM conversation_analyses
+                ORDER BY created_at DESC
+                LIMIT :limit
+            """)
+            params = {"limit": limit}
+
+        with engine.connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+            return [dict(r._mapping) for r in rows]
+    except Exception as e:
+        logger.error(f"fetch_analyses_from_db error: {e}")
+        return []
+
+
+def fetch_analyses_stats_from_db(shop_id: Optional[str] = None) -> dict:
+    """Aggregate stats directly from DB."""
+    import sqlalchemy
+    try:
+        where = "WHERE shop_id = :shop_id" if shop_id else ""
+        sql = sqlalchemy.text(f"""
+            SELECT
+                COUNT(*)                                        AS total_conversations,
+                ROUND(AVG(duration_minutes)::numeric, 1)        AS avg_duration_minutes,
+                ROUND(AVG(turn_count)::numeric, 1)              AS avg_turns,
+                SUM(images_shared)                              AS total_images_shared,
+                outcome,
+                COUNT(*) OVER (PARTITION BY outcome)            AS outcome_count
+            FROM conversation_analyses
+            {where}
+            GROUP BY outcome
+        """)
+        params = {"shop_id": str(shop_id)} if shop_id else {}
+
+        with engine.connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+            if not rows:
+                return {}
+
+            first = dict(rows[0]._mapping)
+            outcomes = {dict(r._mapping)["outcome"]: dict(r._mapping)["outcome_count"] for r in rows}
+            return {
+                "total_conversations": first["total_conversations"],
+                "avg_duration_minutes": float(first["avg_duration_minutes"] or 0),
+                "avg_turns": float(first["avg_turns"] or 0),
+                "total_images_shared": first["total_images_shared"] or 0,
+                "outcome_breakdown": outcomes
+            }
+    except Exception as e:
+        logger.error(f"fetch_analyses_stats_from_db error: {e}")
+        return {}
+
+
 
 
 def is_rate_limited(text: str) -> bool:
@@ -760,12 +979,247 @@ def debug_table():
     }), 200
 
 
+
+ANALYSIS_PROMPT = """You are a retail analytics expert. Analyze this conversation between a customer and a retail assistant.
+
+Shop: {shop_name} ({shop_id})
+Location: {city}, {state}, {country}
+Product Category: {product_type}
+Session ID: {session_id}
+Duration: {duration_minutes} minutes
+Total Turns: {turn_count}
+
+Conversation:
+{conversation_text}
+
+Provide a structured JSON analysis with EXACTLY this format (no markdown, raw JSON only):
+{{
+  "summary": "2-3 sentence plain English summary of what happened in the conversation",
+  "outcome": "PURCHASED_INTENT | BROWSED_ONLY | ABANDONED | SUPPORT_RESOLVED | UNDECIDED",
+  "final_stage": "the last stage reached in the sales funnel",
+  "metrics": {{
+    "turns": {turn_count},
+    "duration_minutes": {duration_minutes},
+    "images_shared": {images_shared},
+    "sql_queries_made": {sql_queries},
+    "stages_reached": [],
+    "stage_progression": "linear | jumped_around | stalled"
+  }},
+  "customer_intent": "what the customer was actually looking for",
+  "products_discussed": ["list of specific products or categories mentioned"],
+  "key_insights": [
+    "insight 1 about customer behavior or preference",
+    "insight 2",
+    "insight 3"
+  ],
+  "missed_opportunities": ["things the bot could have done better"],
+  "sentiment_arc": "started_positive | started_negative | improved | declined | neutral_throughout",
+  "recommended_followup": "what a human sales agent should do if this customer visits the store"
+}}"""
+
+
+@app.route("/analyze-session", methods=["POST"])
+def analyze_session():
+    """
+    Called when user closes the voice UI.
+    Generates a full conversation analysis and stores it in the global list.
+    """
+    session_data, session_id = get_session_data()
+    if session_data is None:
+        return jsonify({"error": "No session found"}), 404
+
+    chat_history = session_data.get("chat_history", [])
+    if not chat_history:
+        return jsonify({"message": "No conversation to analyze", "analysis": None}), 200
+
+    # ── Build conversation text ──────────────────────────────────────────
+    conversation_lines = []
+    for i, msg in enumerate(chat_history, 1):
+        conversation_lines.append(f"Turn {i}:")
+        conversation_lines.append(f"  Customer: {msg.get('content', '')}")
+        if msg.get("had_image"):
+            conversation_lines.append(f"  [Customer sent image: {msg.get('image_context', '')}]")
+        conversation_lines.append(f"  Assistant: {msg.get('response', '')}")
+        conversation_lines.append(f"  [Stage: {msg.get('stage', '?')}]")
+        conversation_lines.append("")
+    conversation_text = "\n".join(conversation_lines)
+
+    # ── Calculate metrics ────────────────────────────────────────────────
+    turn_count      = len(chat_history)
+    images_shared   = sum(1 for m in chat_history if m.get("had_image"))
+    sql_queries     = sum(1 for m in chat_history if m.get("had_sql"))
+    stages_reached  = list(dict.fromkeys([m.get("stage", "UNKNOWN") for m in chat_history]))
+
+    # Duration from first to last message
+    try:
+        t_first = datetime.fromisoformat(chat_history[0].get("timestamp", datetime.now().isoformat()))
+        t_last  = datetime.fromisoformat(chat_history[-1].get("timestamp", datetime.now().isoformat()))
+        duration_minutes = round((t_last - t_first).total_seconds() / 60, 1)
+    except Exception:
+        duration_minutes = 0
+
+    # ── Call LLM for analysis ────────────────────────────────────────────
+    try:
+        prompt = ANALYSIS_PROMPT.format(
+            shop_name        = session_data.get("shopName", "Unknown"),
+            shop_id          = session_data.get("shop_id", "Unknown"),
+            city             = session_data.get("city", ""),
+            state            = session_data.get("state", ""),
+            country          = session_data.get("country", ""),
+            product_type     = session_data.get("productType", ""),
+            session_id       = session_id,
+            duration_minutes = duration_minutes,
+            turn_count       = turn_count,
+            images_shared    = images_shared,
+            sql_queries      = sql_queries,
+            conversation_text= conversation_text
+        )
+
+        response     = llm.invoke([{"role": "user", "content": prompt}])
+        raw          = response.content.strip()
+        clean        = re.sub(r"```(?:json)?\s*([\s\S]*?)\s*```", r"\1", raw).strip()
+        llm_analysis = json.loads(clean)
+
+        # Patch stages_reached from actual data (LLM sometimes hallucinates)
+        llm_analysis["metrics"]["stages_reached"] = stages_reached
+
+    except Exception as e:
+        logger.error(f"Analysis LLM error: {e}")
+        llm_analysis = {
+            "summary": "Analysis failed — raw conversation stored.",
+            "outcome": "UNKNOWN",
+            "final_stage": session_data.get("current_stage", "UNKNOWN"),
+            "metrics": {
+                "turns": turn_count,
+                "duration_minutes": duration_minutes,
+                "images_shared": images_shared,
+                "sql_queries_made": sql_queries,
+                "stages_reached": stages_reached,
+                "stage_progression": "unknown"
+            },
+            "customer_intent": "unknown",
+            "products_discussed": [],
+            "key_insights": [],
+            "missed_opportunities": [],
+            "sentiment_arc": "unknown",
+            "recommended_followup": "Review conversation manually."
+        }
+
+    # ── Build full record ────────────────────────────────────────────────
+    record = {
+        "session_id":    session_id,
+        "user_id":       session_data.get("user_id") or session_id[:8],
+        "shop_id":       session_data.get("shop_id"),
+        "shop_name":     session_data.get("shopName"),
+        "city":          session_data.get("city"),
+        "state":         session_data.get("state"),
+        "country":       session_data.get("country"),
+        "product_type":  session_data.get("productType"),
+        "started_at":    chat_history[0].get("timestamp") if chat_history else datetime.now().isoformat(),
+        "ended_at":      datetime.now().isoformat(),
+        "duration_minutes": duration_minutes,
+        "turn_count":    turn_count,
+        "analysis":      llm_analysis,
+        "conversation":  chat_history   # full transcript attached
+    }
+
+    # ── Save to database ────────────────────────────────────────────────
+    db_id = save_analysis_to_db(record)
+
+    # ── Clear session after saving ───────────────────────────────────────
+    session_data["chat_history"]  = []
+    session_data["current_stage"] = "GREETING"
+    logger.info(
+        f"Analysis saved (db_id={db_id}) + session cleared | "
+        f"session={session_id[:8]} | shop={record['shop_name']} | "
+        f"outcome={llm_analysis.get('outcome')} | turns={turn_count}"
+    )
+
+    return jsonify({
+        "message":    "Analysis complete and session cleared",
+        "session_id": session_id,
+        "db_id":      db_id,
+        "analysis":   llm_analysis
+    }), 200
+
+
+@app.route("/analyses", methods=["GET"])
+def get_all_analyses():
+    """Return analyses from DB, optionally filtered by shop_id."""
+    shop_id = request.args.get("shop_id")
+    limit   = int(request.args.get("limit", 100))
+    rows    = fetch_analyses_from_db(shop_id=shop_id, limit=limit)
+
+    # Deserialise JSON string columns for response
+    for r in rows:
+        for col in ("products_discussed", "key_insights"):
+            if isinstance(r.get(col), str):
+                try:
+                    r[col] = json.loads(r[col])
+                except Exception:
+                    r[col] = []
+        # Convert datetime objects to ISO strings
+        for col in ("started_at", "ended_at", "created_at"):
+            if r.get(col) and not isinstance(r[col], str):
+                r[col] = r[col].isoformat()
+
+    return jsonify({
+        "total":    len(rows),
+        "analyses": rows
+    }), 200
+
+
+@app.route("/analyses/<session_id_or_id>", methods=["GET"])
+def get_analysis_detail(session_id_or_id):
+    """Return full analysis by DB id or session_id."""
+    import sqlalchemy
+    try:
+        # Try numeric id first
+        try:
+            row_id = int(session_id_or_id)
+            sql = sqlalchemy.text("SELECT * FROM conversation_analyses WHERE id = :id")
+            params = {"id": row_id}
+        except ValueError:
+            sql = sqlalchemy.text("SELECT * FROM conversation_analyses WHERE session_id = :sid")
+            params = {"sid": session_id_or_id}
+
+        with engine.connect() as conn:
+            row = conn.execute(sql, params).fetchone()
+            if not row:
+                return jsonify({"error": "Not found"}), 404
+            record = dict(row._mapping)
+            for col in ("products_discussed", "key_insights", "missed_opportunities",
+                        "stages_reached", "full_analysis", "conversation_transcript"):
+                if isinstance(record.get(col), str):
+                    try:
+                        record[col] = json.loads(record[col])
+                    except Exception:
+                        pass
+            # Datetime to string
+            for col in ("started_at", "ended_at", "created_at"):
+                if record.get(col) and not isinstance(record[col], str):
+                    record[col] = record[col].isoformat()
+            return jsonify(record), 200
+    except Exception as e:
+        logger.error(f"get_analysis_detail error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/analyses/stats", methods=["GET"])
+def get_analyses_stats():
+    """Aggregate stats from DB."""
+    shop_id = request.args.get("shop_id")
+    stats   = fetch_analyses_stats_from_db(shop_id=shop_id)
+    if not stats:
+        return jsonify({"message": "No analyses yet"}), 200
+    return jsonify(stats), 200
+
+
 @app.route("/", methods=["GET"])
 def health():
     return jsonify({"status": "ShopMate Conversational AI is running"}), 200
 
 
-print(os.getenv('PORT_SERVER'))
 if __name__ == "__main__":
     logger.info("Starting ShopMate Conversational Retail Assistant")
-    app.run(host='0.0.0.0', port=os.getenv('PORT_SERVER'), debug=False)
+    app.run(host='0.0.0.0', port=3000, debug=False)
