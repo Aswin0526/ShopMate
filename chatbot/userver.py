@@ -289,6 +289,13 @@ Set stage to "AWAITING_IMAGE".
 - ALWAYS add LIMIT 10 unless user asks for specific count
 - NEVER access restricted tables: customers, orders, owners, refresh_tokens, wishlist
 
+## WISHLIST HANDLING
+When the user asks to add something to their wishlist (e.g. "add MacBook to my wishlist", "save this", "wishlist it"):
+- Set needs_wishlist to true
+- Set wishlist_keyword to the product name/term they mentioned (e.g. "MacBook", "red dress", "Samsung TV")
+- Set needs_sql to false (the server will search products automatically)
+- Write a response_template confirming you will show matching products for them to pick
+
 ## OUTPUT FORMAT — strict JSON only, no markdown, no extra text
 {{
   "stage": "GREETING|BROWSING|INTERESTED|COMPARING|DECIDING|CLOSING|SUPPORT|AWAITING_IMAGE",
@@ -296,6 +303,8 @@ Set stage to "AWAITING_IMAGE".
   "sql_query": "SELECT ... FROM {table_name} WHERE ...",
   "needs_image": true|false,
   "image_context": "what you are asking the customer to photograph (null if needs_image=false)",
+  "needs_wishlist": true|false,
+  "wishlist_keyword": "product name/term to search (null if needs_wishlist=false)",
   "thinking": "brief internal reasoning",
   "response_template": "your response to the user (put [SQL_RESULTS] where DB data goes if needs_sql=true)"
 }}
@@ -357,6 +366,74 @@ def is_empty_sql_result(result: str) -> bool:
     if all(set(l) <= set("-+|= ") for l in lines):
         return True
     return False
+
+
+def search_products_for_wishlist(keyword: str, allowed_table: str) -> list:
+    """
+    Search shop table for products matching keyword.
+    Returns a list of dicts: [{product_id, product_name, price, ...}]
+    Uses safe parameterized query — NOT through LLM SQL gate.
+    """
+    import sqlalchemy
+    # Determine which columns to fetch — try common names
+    try:
+        existing = [t.lower() for t in get_all_db_tables()]
+        if allowed_table.lower() not in existing:
+            return []
+
+        # Introspect actual columns
+        with engine.connect() as conn:
+            col_result = conn.execute(sqlalchemy.text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = :t AND table_schema = 'public' ORDER BY ordinal_position"
+            ), {"t": allowed_table.lower()})
+            columns = [r[0] for r in col_result]
+
+        # Find the id column (first col with 'id' in name)
+        id_col   = next((c for c in columns if c.lower() in ('id', 'product_id')), columns[0])
+        # Find name column
+        name_col = next((c for c in columns if 'name' in c.lower()), None)
+        if not name_col:
+            return []
+        # Find price column if exists
+        price_col = next((c for c in columns if 'price' in c.lower()), None)
+        # Find brand column if exists
+        brand_col = next((c for c in columns if 'brand' in c.lower()), None)
+        # Find description column if exists
+        desc_col  = next((c for c in columns if 'desc' in c.lower()), None)
+
+        select_cols = [id_col, name_col]
+        if price_col: select_cols.append(price_col)
+        if brand_col: select_cols.append(brand_col)
+        if desc_col:  select_cols.append(desc_col)
+
+        select_str = ", ".join(select_cols)
+        safe_table = allowed_table.lower().replace('"', '').replace("'", "")
+
+        sql = sqlalchemy.text(
+            f"SELECT {select_str} FROM {safe_table} "
+            f"WHERE lower({name_col}) LIKE lower(:kw) LIMIT 8"
+        )
+
+        with engine.connect() as conn:
+            rows = conn.execute(sql, {"kw": f"%{keyword}%"}).fetchall()
+
+        results = []
+        for row in rows:
+            d = dict(zip(select_cols, row))
+            results.append({
+                "product_id":   d.get(id_col),
+                "product_name": d.get(name_col),
+                "price":        d.get(price_col) if price_col else None,
+                "brand":        d.get(brand_col) if brand_col else None,
+                "description":  str(d.get(desc_col, ""))[:100] if desc_col else None,
+            })
+        logger.info(f"Wishlist search '{keyword}' on {safe_table}: {len(results)} results")
+        return results
+
+    except Exception as e:
+        logger.error(f"search_products_for_wishlist error: {e}")
+        return []
 
 # ─────────────────────────────────────────────
 # Conversational Agent
@@ -492,6 +569,13 @@ class ConversationalAgent:
             else:
                 logger.info(f"SQL returned data: {sql_results[:120]}")
 
+        # ── Step 3b: Wishlist product search (controlled, not LLM SQL gate) ───
+        wishlist_products = []
+        if plan.get("needs_wishlist") and plan.get("wishlist_keyword"):
+            keyword = plan["wishlist_keyword"]
+            wishlist_products = search_products_for_wishlist(keyword, allowed_table)
+            logger.info(f"Wishlist intent detected: keyword='{keyword}', found={len(wishlist_products)}")
+
         # ── Step 4: Format final conversational response ─────────────────
         # If SQL was empty, prepend a hard instruction so LLM cannot hallucinate
         empty_guard = (
@@ -531,9 +615,12 @@ class ConversationalAgent:
         self.session["current_stage"] = plan.get("stage", "BROWSING")
 
         return {
-            "text":          response_text,
-            "needs_image":   bool(plan.get("needs_image")),
-            "image_context": plan.get("image_context") or None
+            "text":             response_text,
+            "needs_image":      bool(plan.get("needs_image")),
+            "image_context":    plan.get("image_context") or None,
+            "needs_wishlist":   bool(plan.get("needs_wishlist")),
+            "wishlist_keyword": plan.get("wishlist_keyword") or None,
+            "wishlist_products": wishlist_products
         }
 
     def _parse_plan(self, content: str) -> dict:
@@ -844,8 +931,8 @@ def transcribe():
     if not data:
         return jsonify({"error": "No data received"}), 400
 
-    text        = (data.get("text", "") or "").strip()
-    image_b64   = data.get("image") or None   # optional base64 image from frontend
+    text = (data.get("text", "") or "").strip()
+    image_b64 = data.get("image") or None 
 
     if not text:
         return jsonify({"error": "Empty message"}), 400
@@ -876,11 +963,14 @@ def transcribe():
     )
 
     return jsonify({
-        "text":          result["text"],
-        "needs_image":   result["needs_image"],
-        "image_context": result["image_context"],
-        "stage":         session_data.get("current_stage", "BROWSING"),
-        "session_id":    session_id
+        "text":              result["text"],
+        "needs_image":       result["needs_image"],
+        "image_context":     result["image_context"],
+        "needs_wishlist":    result.get("needs_wishlist", False),
+        "wishlist_keyword":  result.get("wishlist_keyword"),
+        "wishlist_products": result.get("wishlist_products", []),
+        "stage":             session_data.get("current_stage", "BROWSING"),
+        "session_id":        session_id
     }), 200
 
 
@@ -1188,6 +1278,7 @@ def get_analysis_detail(session_id_or_id):
             if not row:
                 return jsonify({"error": "Not found"}), 404
             record = dict(row._mapping)
+            # Deserialise JSON columns
             for col in ("products_discussed", "key_insights", "missed_opportunities",
                         "stages_reached", "full_analysis", "conversation_transcript"):
                 if isinstance(record.get(col), str):
@@ -1215,6 +1306,7 @@ def get_analyses_stats():
     return jsonify(stats), 200
 
 
+
 @app.route("/", methods=["GET"])
 def health():
     return jsonify({"status": "ShopMate Conversational AI is running"}), 200
@@ -1222,4 +1314,4 @@ def health():
 
 if __name__ == "__main__":
     logger.info("Starting ShopMate Conversational Retail Assistant")
-    app.run(host='0.0.0.0', port=3000, debug=False)
+    app.run(host='0.0.0.0', port=3000, debug=True)

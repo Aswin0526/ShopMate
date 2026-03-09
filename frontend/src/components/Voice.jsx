@@ -13,11 +13,11 @@ const Voice = ({ onClose }) => {
     browserSupportsSpeechRecognition
   } = useSpeechRecognition();
 
-  const [isMuted, setIsMuted]                   = useState(false);
-  const [status, setStatus]                     = useState("Tap to speak");
+  const [isMuted, setIsMuted]                     = useState(false);
+  const [status, setStatus]                       = useState("Tap to speak");
   const [interimTranscript, setInterimTranscript] = useState("");
-  const [isPlayingAudio, setIsPlayingAudio]     = useState(false);
-  const [isAnalysing, setIsAnalysing]           = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio]       = useState(false);
+  const [isAnalysing, setIsAnalysing]             = useState(false);
 
   // ── Image state ──────────────────────────────────────────────────────────
   const [uploadedImage, setUploadedImage]   = useState(null);
@@ -25,6 +25,10 @@ const Voice = ({ onClose }) => {
   const [awaitingImage, setAwaitingImage]   = useState(false);
   const [imageContext, setImageContext]     = useState("");
   const [imagePromptMsg, setImagePromptMsg] = useState("");
+
+  // ── Wishlist state ───────────────────────────────────────────────────────
+  const [wishlistProducts, setWishlistProducts]     = useState([]);
+  const [showWishlistDialog, setShowWishlistDialog] = useState(false);
 
   const lastTranscriptRef      = useRef("");
   const pauseTimeoutRef        = useRef(null);
@@ -40,12 +44,8 @@ const Voice = ({ onClose }) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) { alert("Please select an image file"); return; }
     if (file.size > 5 * 1024 * 1024)    { alert("Image size should be less than 5MB"); return; }
-
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setUploadedImage(e.target.result);
-      setImagePreview(e.target.result);
-    };
+    reader.onload = (e) => { setUploadedImage(e.target.result); setImagePreview(e.target.result); };
     reader.readAsDataURL(file);
   };
 
@@ -68,12 +68,13 @@ const Voice = ({ onClose }) => {
 
   // ── Status label ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (isPlayingAudio)              setStatus("Playing response...");
-    else if (awaitingImage)          setStatus("Please upload the photo below");
-    else if (listening && !isMuted)  setStatus("Listening...");
-    else if (isMuted)                setStatus("Muted — tap to unmute");
-    else                             setStatus("Tap to speak");
-  }, [listening, isMuted, isPlayingAudio, awaitingImage]);
+    if (isPlayingAudio)             setStatus("Playing response...");
+    else if (showWishlistDialog)    setStatus("Pick a product to wishlist");
+    else if (awaitingImage)         setStatus("Please upload the photo below");
+    else if (listening && !isMuted) setStatus("Listening...");
+    else if (isMuted)               setStatus("Muted — tap to unmute");
+    else                            setStatus("Tap to speak");
+  }, [listening, isMuted, isPlayingAudio, awaitingImage, showWishlistDialog]);
 
   // ── Auto-send after 1.5s pause ───────────────────────────────────────────
   useEffect(() => {
@@ -103,9 +104,7 @@ const Voice = ({ onClose }) => {
       const audioUrl    = URL.createObjectURL(blob);
       const audio       = new Audio(audioUrl);
       audioRef.current  = audio;
-
       audio.play().catch((err) => { console.error("Playback error:", err); setIsPlayingAudio(false); });
-
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
         setIsPlayingAudio(false);
@@ -124,9 +123,9 @@ const Voice = ({ onClose }) => {
   const sendTranscript = useCallback((overrideText = null) => {
     const finalTranscript = (overrideText || transcript).trim();
 
-    if (!finalTranscript)                                             { console.log("Skipping: empty");     return; }
-    if (isTranscribingRef.current)                                    { console.log("Skipping: in progress"); return; }
-    if (!overrideText && lastSentTranscriptRef.current === finalTranscript) { console.log("Skipping: duplicate"); return; }
+    if (!finalTranscript)                                                    { console.log("Skipping: empty");      return; }
+    if (isTranscribingRef.current)                                           { console.log("Skipping: in progress"); return; }
+    if (!overrideText && lastSentTranscriptRef.current === finalTranscript)  { console.log("Skipping: duplicate");  return; }
 
     if (currentTimeoutRef.current) { clearTimeout(currentTimeoutRef.current); currentTimeoutRef.current = null; }
 
@@ -140,8 +139,6 @@ const Voice = ({ onClose }) => {
     const payload     = { text: finalTranscript };
     if (imageToSend) payload.image = imageToSend;
 
-    console.log("Sending:", finalTranscript, imageToSend ? "[+IMAGE]" : "");
-
     fetch(`${import.meta.env.VITE_CHATBOT_URL}/transcribe`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "X-Session-ID": session_id },
@@ -149,10 +146,28 @@ const Voice = ({ onClose }) => {
     })
       .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
       .then(async (data) => {
-        const { text: responseText, needs_image: needsImage, image_context: imgContext } = data;
+        const {
+          text: responseText,
+          needs_image: needsImage,
+          image_context: imgContext,
+          needs_wishlist: needsWishlist,
+          wishlist_products: wProducts = [],
+        } = data;
 
         if (imageToSend) removeImage();
 
+        // ── Wishlist dialog ──────────────────────────────────────────────
+        if (needsWishlist && wProducts.length > 0) {
+          setWishlistProducts(wProducts);
+          setShowWishlistDialog(true);
+          setIsPlayingAudio(false);
+          isTranscribingRef.current = false;
+          // Still speak the bot's reply before showing dialog
+          if (responseText) await playTTS(responseText);
+          return;
+        }
+
+        // ── Image request ────────────────────────────────────────────────
         if (needsImage && imgContext) {
           setAwaitingImage(true);
           setImageContext(imgContext);
@@ -173,6 +188,54 @@ const Voice = ({ onClose }) => {
       });
   }, [transcript, uploadedImage, getSessionId, playTTS]);
 
+    const handleWishlistConfirm = useCallback((product) => {
+    
+    const shopDetails = JSON.parse(localStorage.getItem("sc_details"));
+    if (shopDetails) {
+      const shopId = shopDetails.shopId;
+      const productId = product.product_id;
+      const custId = shopDetails.custId;
+      const shopType = shopDetails.shopType;
+      const product_name = product.product_name;
+      const token = localStorage.getItem("access_token");
+
+      fetch(`${import.meta.env.VITE_BACKEND_URL}/api/customers/addWishList`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          cust_id: custId,
+          productId: productId,
+          shopId: shopId,
+          type: shopType,
+          product_name: product_name
+        }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log("Added in wishlist");
+        } else {
+          console.log("Not added in wishlist");
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+      });
+    }
+
+    setShowWishlistDialog(false);
+    setWishlistProducts([]);
+    playTTS(`Sure! I'll add ${product.product_name} to your wishlist.`);
+  }, [playTTS]);
+
+  const handleWishlistDismiss = useCallback(() => {
+    setShowWishlistDialog(false);
+    setWishlistProducts([]);
+  }, []);
+
   // ── Send image when bot is waiting ───────────────────────────────────────
   const sendImageNow = useCallback(() => {
     if (!uploadedImage) return;
@@ -191,11 +254,9 @@ const Voice = ({ onClose }) => {
   };
 
   const toggleRecording = () => {
-    if (listening && !isMuted) {
-      stopListening();
-    } else if (isMuted) {
-      startListening();
-    } else {
+    if (listening && !isMuted) stopListening();
+    else if (isMuted) startListening();
+    else {
       resetTranscript();
       lastTranscriptRef.current = "";
       setInterimTranscript("");
@@ -204,13 +265,8 @@ const Voice = ({ onClose }) => {
   };
 
   const toggleMute = () => {
-    if (isMuted) {
-      SpeechRecognition.startListening({ continuous: true, language: "en-IN" });
-      setIsMuted(false);
-    } else {
-      SpeechRecognition.stopListening();
-      setIsMuted(true);
-    }
+    if (isMuted) { SpeechRecognition.startListening({ continuous: true, language: "en-IN" }); setIsMuted(false); }
+    else         { SpeechRecognition.stopListening(); setIsMuted(true); }
   };
 
   const stopAndListen = () => {
@@ -228,7 +284,6 @@ const Voice = ({ onClose }) => {
   };
 
   const handleClose = useCallback(async () => {
-    // Stop all audio immediately
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsPlayingAudio(false);
     setIsMuted(false);
@@ -239,75 +294,20 @@ const Voice = ({ onClose }) => {
     if (currentTimeoutRef.current) { clearTimeout(currentTimeoutRef.current); currentTimeoutRef.current = null; }
     if (listening) SpeechRecognition.stopListening();
 
-    // ── Post-conversation analysis ───────────────────────────────────────
     const session_id = getSessionId();
-
     try {
       setIsAnalysing(true);
-      console.log("Requesting conversation analysis...");
-
       const res = await fetch(`${import.meta.env.VITE_CHATBOT_URL}/analyze-session`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", "X-Session-ID": session_id }
       });
-
       if (res.ok) {
         const data = await res.json();
-
         if (data.analysis) {
-          // ── Build a rich record to store locally ──────────────────────
-          const record = {
-            session_id,
-            analysed_at:  new Date().toISOString(),
-            shop_name:    data.analysis?.shop_name   || null,
-            shop_id:      data.analysis?.shop_id     || null,
-            outcome:      data.analysis?.outcome,
-            final_stage:  data.analysis?.final_stage,
-            summary:      data.analysis?.summary,
-            duration_minutes: data.analysis?.metrics?.duration_minutes,
-            turn_count:   data.analysis?.metrics?.turns,
-            key_insights: data.analysis?.key_insights || [],
-            products_discussed: data.analysis?.products_discussed || [],
-            sentiment_arc: data.analysis?.sentiment_arc,
-            recommended_followup: data.analysis?.recommended_followup,
-            full_analysis: data.analysis
-          };
           localStorage.removeItem("session_id");
           localStorage.removeItem("shopmate_analyses");
-          // ── Append to localStorage list ────────────────────────────────
-          // const existing = JSON.parse(localStorage.getItem("shopmate_analyses") || "[]");
-          // existing.push(record);
-          // // Keep last 50 analyses
-          // if (existing.length > 50) existing.splice(0, existing.length - 50);
-          // localStorage.setItem("shopmate_analyses", JSON.stringify(existing));
-
-          // console.log("Analysis stored. Total in localStorage:", existing.length);
-          // console.table({
-          //   "Session":    session_id.slice(0, 8),
-          //   "Outcome":    record.outcome,
-          //   "Stage":      record.final_stage,
-          //   "Turns":      record.turn_count,
-          //   "Duration":   `${record.duration_minutes}m`,
-          //   "Sentiment":  record.sentiment_arc,
-          //   "Summary":    record.summary
-          // });
-
-          // if (record.key_insights?.length) {
-          //   console.group("Key Insights");
-          //   record.key_insights.forEach((ins, i) => console.log(`${i+1}. ${ins}`));
-          //   console.groupEnd();
-          // }
-
-          // if (record.products_discussed?.length) {
-          //   console.log("Products discussed:", record.products_discussed.join(", "));
-          // }
-
-          // if (record.recommended_followup) {
-          //   console.log("Recommended follow-up:", record.recommended_followup);
-          // }
+          localStorage.removeItem("sc_details");
         }
-      } else {
-        console.warn("Analysis request failed:", res.status);
       }
     } catch (err) {
       console.warn("Analysis error (non-blocking):", err);
@@ -348,16 +348,11 @@ const Voice = ({ onClose }) => {
         {/* ── Scrollable body ── */}
         <div className="voice-content">
 
-          {/* Mic + status always at top */}
+          {/* Mic + status */}
           <div className="voice-top-section">
             <button className="voice-mic-button" onClick={toggleRecording}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className={`voice-mic-icon ${listening && !isMuted ? "recording" : ""}`}
-              >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                   className={`voice-mic-icon ${listening && !isMuted ? "recording" : ""}`}>
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                 <line x1="12" y1="19" x2="12" y2="23" />
@@ -385,25 +380,17 @@ const Voice = ({ onClose }) => {
             </div>
           )}
 
-          {/* Image upload / preview section */}
+          {/* Image upload / preview */}
           <div className={`voice-image-section ${awaitingImage ? "voice-image-section--active" : ""}`}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              style={{ display: "none" }}
-            />
-
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload}
+                   accept="image/*" style={{ display: "none" }} />
             {imagePreview ? (
               <div className="voice-image-preview-container">
                 <img src={imagePreview} alt="Uploaded" className="voice-image-preview" />
                 <div className="voice-image-actions">
                   <button className="voice-image-remove-btn" onClick={removeImage}>✕ Remove</button>
                   {awaitingImage && (
-                    <button className="voice-image-send-btn" onClick={sendImageNow}>
-                      📤 Send Photo
-                    </button>
+                    <button className="voice-image-send-btn" onClick={sendImageNow}>📤 Send Photo</button>
                   )}
                 </div>
               </div>
@@ -435,11 +422,8 @@ const Voice = ({ onClose }) => {
           {/* Mute control */}
           {listening && (
             <div className="voice-controls">
-              <button
-                className={`voice-mute-btn ${isMuted ? "muted" : ""}`}
-                onClick={toggleMute}
-                title={isMuted ? "Unmute" : "Mute"}
-              >
+              <button className={`voice-mute-btn ${isMuted ? "muted" : ""}`} onClick={toggleMute}
+                      title={isMuted ? "Unmute" : "Mute"}>
                 {isMuted ? (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="22" height="22">
                     <line x1="1" y1="1" x2="23" y2="23" />
@@ -460,7 +444,54 @@ const Voice = ({ onClose }) => {
             </div>
           )}
 
-        </div>{/* end voice-content */}
+        </div>
+
+        {/* ── Wishlist Product Dialog ── */}
+        {showWishlistDialog && (
+          <div className="wl-dialog-overlay">
+            <div className="wl-dialog">
+              <div className="wl-dialog-header">
+                <span className="wl-dialog-icon">🛍️</span>
+                <div>
+                  <p className="wl-dialog-title">Add to Wishlist</p>
+                  <p className="wl-dialog-sub">Tap the product you want to save</p>
+                </div>
+                <button className="wl-dialog-close" onClick={handleWishlistDismiss}>✕</button>
+              </div>
+
+              <div className="wl-product-list">
+                {wishlistProducts.length === 0 ? (
+                  <p className="wl-empty">No matching products found.</p>
+                ) : (
+                  wishlistProducts.map((product, i) => (
+                    <button
+                      key={product.product_id ?? i}
+                      className="wl-product-card"
+                      onClick={() => handleWishlistConfirm(product)}
+                    >
+                      <div className="wl-product-info">
+                        <span className="wl-product-name">{product.product_name}</span>
+                        {product.brand && (
+                          <span className="wl-product-brand">{product.brand}</span>
+                        )}
+                        {product.description && (
+                          <span className="wl-product-desc">{product.description}</span>
+                        )}
+                      </div>
+                      {product.price != null && (
+                        <span className="wl-product-price">₹{product.price}</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <button className="wl-cancel-btn" onClick={handleWishlistDismiss}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Analysing overlay ── */}
         {isAnalysing && (

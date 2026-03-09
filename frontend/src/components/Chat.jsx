@@ -21,7 +21,6 @@ function Chat({ custData, onClose, onVoiceOpen }) {
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
   
-  // Dropdown options
   const [cities, setCities] = useState([]);
   const [states, setStates] = useState([]);
   const [countries, setCountries] = useState([]);

@@ -482,6 +482,13 @@ function ShopDetail() {
           console.log("Session ID stored:", data.session_id);
         }
         console.log("Chat session started successfully!");
+        const sc_details = {
+          "shopId" : shopId,
+          "shopType" : shopType,
+          "shopName" : shopName,
+          "custId" : custId
+        }
+        localStorage.setItem("sc_details", JSON.stringify(sc_details));
         showNotification("Chat session started!", "success");
         setShowVoiceChat(true);
       }
