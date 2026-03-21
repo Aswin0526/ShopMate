@@ -7,6 +7,7 @@ function Map({ Data }) {
   const [productDirections, setProductDirections] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [visibleSteps, setVisibleSteps] = useState(1);
   const [editingDirections, setEditingDirections] = useState({
     direction1: '',
     direction2: '',
@@ -31,18 +32,11 @@ function Map({ Data }) {
     return `${Data.type}_${Data.shop_id}_${normalizedShopName}`;
   };
 
-  // Fetch products when component mounts
-  useEffect(() => {
-    if (Data) {
-      fetchProducts();
-    }
-  }, [Data]);
-
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
       const tableName = getTableName();
-      
+
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-products`, {
         method: 'POST',
         headers: {
@@ -67,6 +61,14 @@ function Map({ Data }) {
       setIsLoading(false);
     }
   };
+
+  // Fetch products when component mounts
+  useEffect(() => {
+    if (Data) {
+      fetchProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Data]);
 
   const fetchProductDirections = async (productId) => {
     try {
@@ -99,6 +101,11 @@ function Map({ Data }) {
             image4: result.data.image4,
             image5: result.data.image5,
           });
+          // Find the highest step (1-5) that has data, preventing later steps from hiding
+          const maxStep = [1, 2, 3, 4, 5].reduce((max, n) =>
+            (result.data[`direction${n}`] || result.data[`image${n}`]) ? Math.max(max, n) : max, 1
+          );
+          setVisibleSteps(maxStep);
         } else {
           // Reset editing directions if no data found
           setEditingDirections({
@@ -123,9 +130,14 @@ function Map({ Data }) {
   };
 
   const handleProductSelect = (product) => {
-    setSelectedProduct(product);
-    setIsEditing(false);
-    fetchProductDirections(product.id);
+    if (selectedProduct?.id === product.id) {
+      setSelectedProduct(null);
+      setProductDirections(null);
+    } else {
+      setSelectedProduct(product);
+      setVisibleSteps(1);
+      fetchProductDirections(product.id);
+    }
   };
 
   const handleImageUpload = (imageKey, file) => {
@@ -151,8 +163,8 @@ function Map({ Data }) {
   const saveDirections = async () => {
     try {
       setIsLoading(true);
-      const endpoint = productDirections ? 
-        `${import.meta.env.VITE_BACKEND_URL}/api/owners/update-product-directions` : 
+      const endpoint = productDirections ?
+        `${import.meta.env.VITE_BACKEND_URL}/api/owners/update-product-directions` :
         `${import.meta.env.VITE_BACKEND_URL}/api/owners/add-product-directions`;
 
       const response = await fetch(endpoint, {
@@ -171,7 +183,6 @@ function Map({ Data }) {
       const result = await response.json();
       if (result.success) {
         alert('Directions saved successfully!');
-        setIsEditing(false);
         fetchProductDirections(selectedProduct.id);
       } else {
         alert('Failed to save directions: ' + result.message);
@@ -185,7 +196,7 @@ function Map({ Data }) {
   };
 
   const cancelEdit = () => {
-    setIsEditing(false);
+    // Revert form back to the DB state
     if (productDirections) {
       setEditingDirections({
         direction1: productDirections.direction1 || '',
@@ -199,6 +210,16 @@ function Map({ Data }) {
         image4: productDirections.image4,
         image5: productDirections.image5,
       });
+      const maxStep = [1, 2, 3, 4, 5].reduce((max, n) =>
+        (productDirections[`direction${n}`] || productDirections[`image${n}`]) ? Math.max(max, n) : max, 1
+      );
+      setVisibleSteps(maxStep);
+    } else {
+      setEditingDirections({
+        direction1: '', direction2: '', direction3: '', direction4: '', direction5: '',
+        image1: null, image2: null, image3: null, image4: null, image5: null,
+      });
+      setVisibleSteps(1);
     }
   };
 
@@ -213,96 +234,122 @@ function Map({ Data }) {
         <p>Shop: {Data.shop_name} | Type: {Data.type}</p>
       </div>
 
-      <div className="map-content">
-        {/* Products List */}
-        <div className="products-section">
+      <div className={`map-content${selectedProduct ? ' has-selection' : ''}`}>
+        {/* Products Grid / List */}
+        <div className={`products-section${selectedProduct ? ' collapsed' : ''}`}>
           <h3>Products</h3>
           {isLoading && <div className="loading">Loading...</div>}
-          <div className="products-list">
+          <div className="products-grid">
             {products.map((product) => (
               <div
                 key={product.id}
                 className={`product-item ${selectedProduct?.id === product.id ? 'selected' : ''}`}
                 onClick={() => handleProductSelect(product)}
               >
-                <div className="product-info">
-                  <h4>{product.product_name}</h4>
-                  <p>Price: ${product.price}</p>
-                  <p>Quantity: {product.quantity}</p>
-                </div>
                 {product.image1 && (
-                  <img 
-                    src={product.image1} 
+                  <img
+                    src={product.image1}
                     alt={product.product_name}
                     className="product-thumbnail"
                   />
                 )}
+                <div className="product-info">
+                  <h4>{product.product_name}</h4>
+                  <p>💰 ${product.price}</p>
+                  <p>📦 Qty: {product.quantity}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Product Directions */}
-        {selectedProduct && (
-          <div className="directions-section">
-            <div className="directions-header">
-              <h3>Directions for: {selectedProduct.product_name}</h3>
-              <div className="directions-actions">
-                {!isEditing ? (
-                  <button 
-                    className="edit-btn"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    {productDirections ? 'Edit Directions' : 'Add Directions'}
-                  </button>
-                ) : (
+        {/* Product Directions — always in DOM, shown/hidden via CSS */}
+        <div className={`directions-section${selectedProduct ? ' visible' : ''}`}>
+          {!selectedProduct ? (
+            <div className="directions-placeholder">
+              <span className="directions-placeholder-icon">📋</span>
+              <p>Select a product to manage directions</p>
+            </div>
+          ) : (
+            <>
+              <div className="directions-header">
+                <h3>Directions for: {selectedProduct.product_name}</h3>
+                <div className="directions-actions">
                   <div className="edit-actions">
-                    <button 
+                    <button
                       className="save-btn"
                       onClick={saveDirections}
                       disabled={isLoading}
                     >
-                      Save
+                      {productDirections ? 'Update' : 'Add Directions'}
                     </button>
-                    <button 
+                    <button
                       className="cancel-btn"
                       onClick={cancelEdit}
                     >
                       Cancel
                     </button>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="directions-content">
-              {[1, 2, 3, 4, 5].map((num) => {
-                const directionKey = `direction${num}`;
-                const imageKey = `image${num}`;
-                
-                return (
-                  <div key={num} className="direction-item">
-                    <h4>Step {num}</h4>
-                    
-                    {/* Direction Text */}
-                    <div className="direction-text">
-                      <label>Direction:</label>
-                      {isEditing ? (
-                        <textarea
+              <div className="directions-content">
+                {Array.from({ length: visibleSteps }, (_, i) => i + 1).map((num) => {
+                  const directionKey = `direction${num}`;
+                  const imageKey = `image${num}`;
+
+                  // Handler: delete this detail and shift all subsequent ones up
+                  const handleDeleteDetail = () => {
+                    setEditingDirections(prev => {
+                      const next = { ...prev };
+                      // Shift direction and image data up from pos+1 onward
+                      for (let i = num; i < visibleSteps; i++) {
+                        next[`direction${i}`] = prev[`direction${i + 1}`] || '';
+                        next[`image${i}`] = prev[`image${i + 1}`] || null;
+                      }
+                      // Clear the last slot
+                      next[`direction${visibleSteps}`] = '';
+                      next[`image${visibleSteps}`] = null;
+                      return next;
+                    });
+                    setVisibleSteps(prev => prev - 1);
+                  };
+
+                  return (
+                    <div key={num} className="direction-item">
+                      <div className="direction-item-header">
+                        <h4>Detail {num}</h4>
+                        {/* Delete button for Details 2-5 (any of them) */}
+                        {num > 1 && (
+                          <button
+                            className="delete-step-btn"
+                            onClick={handleDeleteDetail}
+                            title={`Delete Detail ${num}`}
+                          >
+                            🗑 Delete
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Direction Dropdown */}
+                      <div className="direction-text">
+                        <label>Direction:</label>
+                        <select
                           value={editingDirections[directionKey]}
                           onChange={(e) => handleDirectionChange(directionKey, e.target.value)}
-                          placeholder={`Enter direction for step ${num}`}
-                          rows="3"
-                        />
-                      ) : (
-                        <p>{productDirections?.[directionKey] || 'No direction available'}</p>
-                      )}
-                    </div>
+                          className="direction-select"
+                        >
+                          <option value="">-- Select --</option>
+                          <option value="forward">↑ Forward</option>
+                          <option value="backward">↓ Backward</option>
+                          <option value="left">← Left</option>
+                          <option value="right">→ Right</option>
+                        </select>
+                      </div>
 
-                    {/* Direction Image */}
-                    <div className="direction-image">
-                      <label>Image:</label>
-                      {isEditing ? (
+                      {/* Direction Image */}
+                      <div className="direction-image">
+                        <label>Image:</label>
                         <div className="image-upload">
                           <input
                             type="file"
@@ -310,33 +357,31 @@ function Map({ Data }) {
                             onChange={(e) => handleImageUpload(imageKey, e.target.files[0])}
                           />
                           {editingDirections[imageKey] && (
-                            <img 
-                              src={editingDirections[imageKey]} 
-                              alt={`Step ${num}`}
+                            <img
+                              src={editingDirections[imageKey]}
+                              alt={`Detail ${num}`}
                               className="direction-preview"
                             />
                           )}
                         </div>
-                      ) : (
-                        <div className="image-display">
-                          {productDirections?.[imageKey] ? (
-                            <img 
-                              src={productDirections[imageKey]} 
-                              alt={`Step ${num}`}
-                              className="direction-image-display"
-                            />
-                          ) : (
-                            <p>No image available</p>
-                          )}
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                  );
+                })}
+
+                {/* Add Detail button — hidden when all 5 details are visible */}
+                {visibleSteps < 5 && (
+                  <button
+                    className="add-step-btn"
+                    onClick={() => setVisibleSteps(prev => prev + 1)}
+                  >
+                    + Add Detail {visibleSteps + 1}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

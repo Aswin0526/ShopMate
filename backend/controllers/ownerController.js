@@ -1947,8 +1947,8 @@ const updateShopProfile = async (req, res) => {
     }
 
     // Validate required fields
-    if (!shop_name || !shop_phone || !shop_email || 
-        !shop_country || !shop_state || !shop_city || !shop_pincode) {
+    if (!shop_name || !shop_phone || !shop_email ||
+      !shop_country || !shop_state || !shop_city || !shop_pincode) {
       return res.status(400).json({
         success: false,
         message: "Required fields are missing",
@@ -2134,9 +2134,9 @@ const getMostWantedProducts = async (req, res) => {
     const { type, city, state, country } = req.body;
 
     if (!type || !city || !state || !country) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Type, city, state, and country are required" 
+      return res.status(400).json({
+        success: false,
+        message: "Type, city, state, and country are required"
       });
     }
 
@@ -2192,12 +2192,12 @@ const getMostWantedProducts = async (req, res) => {
 // Get conversation analyses for a shop
 const getConversationAnalyses = async (req, res) => {
   try {
-    const { 
-      shop_id, 
-      search = '', 
-      outcome = '', 
-      page = 1, 
-      limit = 10 
+    const {
+      shop_id,
+      search = '',
+      outcome = '',
+      page = 1,
+      limit = 10
     } = req.body;
 
     if (!shop_id) {
@@ -2208,7 +2208,7 @@ const getConversationAnalyses = async (req, res) => {
     }
 
     const offset = (page - 1) * limit;
-    
+
     // Build query with filters
     let whereConditions = ['shop_id = $1'];
     let queryParams = [shop_id];
@@ -2273,7 +2273,7 @@ const getConversationAnalyses = async (req, res) => {
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    
+
     queryParams.push(limit, offset);
     const result = await pool.query(dataQuery, queryParams);
 
@@ -2303,6 +2303,115 @@ const getConversationAnalyses = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// PRODUCT DIRECTIONS
+// ─────────────────────────────────────────────
+
+const getProductDirections = async (req, res) => {
+  try {
+    const { product_id, shop_id } = req.body;
+    if (!product_id || !shop_id) {
+      return res.status(400).json({ success: false, message: 'product_id and shop_id are required' });
+    }
+    const result = await pool.query(
+      'SELECT * FROM public.product_directions WHERE product_id = $1 AND shop_id = $2',
+      [product_id, shop_id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(200).json({ success: true, data: null });
+    }
+    const row = result.rows[0];
+    const toDataUri = (buf) => {
+      if (!buf) return null;
+      const b64 = Buffer.isBuffer(buf) ? buf.toString('base64') : Buffer.from(buf).toString('base64');
+      return `data:image/jpeg;base64,${b64}`;
+    };
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: row.id,
+        product_id: row.product_id,
+        direction1: row.direction1 || null,
+        direction2: row.direction2 || null,
+        direction3: row.direction3 || null,
+        direction4: row.direction4 || null,
+        direction5: row.direction5 || null,
+        image1: toDataUri(row.image1),
+        image2: toDataUri(row.image2),
+        image3: toDataUri(row.image3),
+        image4: toDataUri(row.image4),
+        image5: toDataUri(row.image5),
+      }
+    });
+  } catch (error) {
+    console.error('getProductDirections error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
+const addProductDirections = async (req, res) => {
+  try {
+    const { product_id, shop_id, directions } = req.body;
+    if (!product_id || !shop_id || !directions) {
+      return res.status(400).json({ success: false, message: 'product_id, shop_id, and directions are required' });
+    }
+    const { direction1, direction2, direction3, direction4, direction5,
+      image1, image2, image3, image4, image5 } = directions;
+    const result = await pool.query(
+      `INSERT INTO public.product_directions
+        (product_id, shop_id, direction1, image1, direction2, image2, direction3, image3, direction4, image4, direction5, image5)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
+      [
+        product_id, shop_id,
+        direction1 || null, base64ToBuffer(image1),
+        direction2 || null, base64ToBuffer(image2),
+        direction3 || null, base64ToBuffer(image3),
+        direction4 || null, base64ToBuffer(image4),
+        direction5 || null, base64ToBuffer(image5),
+      ]
+    );
+    return res.status(201).json({ success: true, message: 'Directions added', data: result.rows[0] });
+  } catch (error) {
+    console.error('addProductDirections error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
+const updateProductDirections = async (req, res) => {
+  try {
+    const { product_id, shop_id, directions } = req.body;
+    if (!product_id || !shop_id || !directions) {
+      return res.status(400).json({ success: false, message: 'product_id, shop_id, and directions are required' });
+    }
+    const { direction1, direction2, direction3, direction4, direction5,
+      image1, image2, image3, image4, image5 } = directions;
+    const result = await pool.query(
+      `UPDATE public.product_directions
+       SET direction1=$3, image1=$4, direction2=$5, image2=$6,
+           direction3=$7, image3=$8, direction4=$9, image4=$10,
+           direction5=$11, image5=$12
+       WHERE product_id=$1 AND shop_id=$2
+       RETURNING id`,
+      [
+        product_id, shop_id,
+        direction1 || null, base64ToBuffer(image1),
+        direction2 || null, base64ToBuffer(image2),
+        direction3 || null, base64ToBuffer(image3),
+        direction4 || null, base64ToBuffer(image4),
+        direction5 || null, base64ToBuffer(image5),
+      ]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'No directions record found for product_id' });
+    }
+    return res.status(200).json({ success: true, message: 'Directions updated', data: result.rows[0] });
+  } catch (error) {
+    console.error('updateProductDirections error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
 module.exports = {
   registerOwner,
   registerOwnerBasic,
@@ -2328,5 +2437,8 @@ module.exports = {
   getShopHitCount,
   WishListCount,
   getMostWantedProducts,
-  getConversationAnalyses
+  getConversationAnalyses,
+  getProductDirections,
+  addProductDirections,
+  updateProductDirections,
 };
