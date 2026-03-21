@@ -26,7 +26,10 @@ const {
   getShopHitCount,
   WishListCount,
   getMostWantedProducts,
-  getConversationAnalyses
+  getConversationAnalyses,
+  getProductDirections,
+  addProductDirections,
+  updateProductDirections,
 } = require("../controllers/ownerController");
 const { verifyToken, isOwner, isCustomer } = require("../middleware/auth");
 
@@ -71,6 +74,11 @@ router.post("/most-wanted-products", verifyToken, isOwner, getMostWantedProducts
 
 // conversation analyses
 router.post("/conversation-analyses", verifyToken, isOwner, getConversationAnalyses);
+
+// product directions
+router.post("/get-product-directions", verifyToken, getProductDirections);
+router.post("/add-product-directions", verifyToken, isOwner, addProductDirections);
+router.post("/update-product-directions", verifyToken, isOwner, updateProductDirections);
 
 module.exports = router;
 
