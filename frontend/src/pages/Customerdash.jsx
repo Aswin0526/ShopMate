@@ -5,7 +5,7 @@ import Corder from '../components/Corder';
 import Custorders from '../components/Custorders';
 import Chat from '../components/Chat';
 import CUpdate from '../components/CUpdate';
-import Voice from '../components/Voice';
+import Home from '../components/home';
 import Needed from './Needed';
 
 function Customerdash() {
@@ -72,7 +72,7 @@ function Customerdash() {
         {activeTab === 'Chat' && showChat && (
           <Chat custData={custData} onClose={handleChatClose} onVoiceOpen={handleVoiceOpen} />
         )}
-        {showVoice && <Voice onClose={handleVoiceClose} />}
+        {showVoice && <Home onClose={handleVoiceClose} />}
         {activeTab === 'Update' && !showChat && <CUpdate custData={custData} />}
       </main>
     </div>

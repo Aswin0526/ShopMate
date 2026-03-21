@@ -330,6 +330,12 @@ Write the FINAL response to: "{user_message}"
 4. NEVER say things like "we have the MacBook Pro" unless that exact product appears in SQL Results.
 5. If you are unsure whether a product exists in the shop — say you'll check and ask the customer to rephrase.
 
+## OUTPUT RULE — CRITICAL:
+- ONLY output the final, warm, conversational response to the user.
+- DO NOT include "Thinking:", "Stage:", "Plan:", "SQL Results:", or any other internal headings.
+- DO NOT echo the input template or prompt.
+- Just output the clean, FINAL plain-text version of your reply.
+
 ## FORMAT RULES:
 - Natural, conversational language
 - NO tables, NO pipe characters, NO asterisks
@@ -598,8 +604,25 @@ class ConversationalAgent:
             user_message   = user_message
         )
 
-        final        = llm.invoke([{"role": "user", "content": formatter_prompt}])
+        final         = llm.invoke([{"role": "user", "content": formatter_prompt}])
         response_text = final.content.strip()
+
+        # Clean response of potential preamble/thinking leftovers
+        unwanted_prefixes = [
+            "Thinking:", "Stage:", "Plan:", "Template:", "SQL Results:", "Image Analysis:",
+            "- Thinking:", "- Stage:", "- Template:", "FINAL response:"
+        ]
+        for pref in unwanted_prefixes:
+            if pref in response_text:
+                # If the prefix is at the start, try to find the actual response
+                # (usually marked by common conversational starts)
+                parts = re.split(rf'(?i){re.escape(pref)}', response_text)
+                if len(parts) > 1:
+                    response_text = parts[-1].strip()
+        
+        # Final cleanup for any leftover markdown structures or accidental copy-paste
+        response_text = re.sub(r'^(\s*-\s*)?Response:\s*', '', response_text, flags=re.IGNORECASE).strip()
+        response_text = re.sub(r'^(\s*-\s*)?Final Response:\s*', '', response_text, flags=re.IGNORECASE).strip()
 
         # ── Step 5: Persist to history ───────────────────────────────────
         self.session["chat_history"].append({
@@ -903,17 +926,22 @@ def start_chat():
     product_type = session_data.get("productType", "products")
     city         = session_data.get("city", "")
 
-    welcome_llm = llm.invoke([{
-        "role": "user",
-        "content": (
-            f"You are ShopMate, a retail assistant for '{shop_name}' in {city} "
-            f"specializing in {product_type}. "
-            f"Give a warm, brief (2-3 sentences) welcome message: "
-            f"1) Greet warmly, 2) Mention shop name and specialty, "
-            f"3) Ask what they're looking for. Be natural, not robotic."
-        )
-    }])
-    welcome_message = welcome_llm.content.strip()
+    try:
+        welcome_llm = llm.invoke([{
+            "role": "user",
+            "content": (
+                f"You are ShopMate, a retail assistant for '{shop_name}' in {city} "
+                f"specializing in {product_type}. "
+                f"Give a warm, brief (2-3 sentences) welcome message: "
+                f"1) Greet warmly, 2) Mention shop name and specialty, "
+                f"3) Ask what they're looking for. Be natural, not robotic."
+            )
+        }])
+        welcome_message = welcome_llm.content.strip()
+    except Exception as e:
+        logger.warning(f"Failed to generate welcome message: {e}")
+        welcome_message = f"Hello! I'm ShopMate, your assistant for {shop_name}. How can I help you discover our {product_type} today?"
+
     logger.info(f"Session started: {shop_name} in {city}")
 
     return jsonify({

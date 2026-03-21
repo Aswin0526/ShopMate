@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../styles//ShopDetail.css';
-import Voice from '../components/Voice';
+import Home from '../components/home';
 
 function ShopDetail() {
   const navigate = useNavigate();
@@ -1015,7 +1015,7 @@ function ShopDetail() {
       )}
 
       {showVoiceChat && (
-        <Voice onClose={() => setShowVoiceChat(false)} />
+        <Home onClose={() => setShowVoiceChat(false)} />
       )}
     </div>
   );
