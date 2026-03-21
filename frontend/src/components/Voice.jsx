@@ -5,7 +5,7 @@ import SpeechRecognition, {
 import "../styles/Voice.css";
 import { EdgeTTS } from 'edge-tts-universal/browser';
 
-const Voice = ({ onClose }) => {
+const Voice = ({ onClose, isPage = false }) => {
   const {
     transcript,
     listening,
@@ -178,7 +178,9 @@ const Voice = ({ onClose }) => {
           setImagePromptMsg("");
         }
 
-        if (responseText) await playTTS(responseText);
+        if (responseText) {
+          await playTTS(responseText);
+        }
       })
       .catch((err) => {
         console.error("Fetch error:", err);
@@ -268,7 +270,7 @@ const Voice = ({ onClose }) => {
     if (isMuted) { SpeechRecognition.startListening({ continuous: true, language: "en-IN" }); setIsMuted(false); }
     else         { SpeechRecognition.stopListening(); setIsMuted(true); }
   };
-
+    
   const stopAndListen = () => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     setIsPlayingAudio(false);
@@ -318,7 +320,7 @@ const Voice = ({ onClose }) => {
   }, [listening, getSessionId, onClose]);
 
   // ── Browser support ──────────────────────────────────────────────────────
-  if (!browserSupportsSpeechRecognition) {
+  if (!browserSupportsSpeechRecognition && !isPage) {
     return (
       <div className="voice-modal-overlay">
         <div className="voice-modal">
@@ -336,12 +338,12 @@ const Voice = ({ onClose }) => {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="voice-modal-overlay">
-      <div className="voice-modal">
+    <div className={isPage ? "voice-page-wrapper" : "voice-modal-overlay"}>
+      <div className={isPage ? "voice-page-container" : "voice-modal"}>
 
         {/* ── Fixed header ── */}
         <div className="voice-header">
-          <p className="voice-header-title">ShopMate Voice</p>
+          <p className="voice-header-title">{isPage ? "ShopMate Text Chat" : "ShopMate Voice"}</p>
           <button className="voice-modal-close" onClick={handleClose}>×</button>
         </div>
 

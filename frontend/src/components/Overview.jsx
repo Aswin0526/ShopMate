@@ -737,81 +737,78 @@ const handleCloseConvDrawer = () => {
 
                             {/* AI Conversations Section */}
                             <div className="ov-conv-section" style={{ marginTop: '30px' }}>
-                                <div className="ov-conv-header">
-                                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
-                                        🤖 AI Conversations Analysis
-                                    </h3>
-                                    <span className="ov-conv-total">{convPagination.total} conversations</span>
-                                </div>
+                                    <div className="ov-conv-header">
+                                        <h3 className="ov-conv-title">🤖 AI Conversations Analysis</h3>
+                                        <span className="ov-conv-total">{convPagination.total} conversations</span>
+                                    </div>
 
-                                {/* Filters */}
-                                <div className="ov-filters">
-                                    <input
-                                        type="text"
-                                        name="search"
-                                        placeholder="Search by summary or intent..."
-                                        className="ov-filter-input ov-filter-search"
-                                        value={convFilters.search}
-                                        onChange={handleConvFilterChange}
-                                    />
-                                    <select
-                                        name="outcome"
-                                        className="ov-filter-input"
-                                        value={convFilters.outcome}
-                                        onChange={handleConvFilterChange}
-                                        style={{ minWidth: '140px' }}
-                                    >
-                                        <option value="">All Outcomes</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="abandoned">Abandoned</option>
-                                        <option value="escalated">Escalated</option>
-                                    </select>
-                                    <button className="ov-filter-reset" onClick={handleConvFilterReset}>
-                                        Reset
-                                    </button>
-                                </div>
+                                    {/* Filters */}
+                                    <div className="ov-filters">
+                                        <input
+                                            type="text"
+                                            name="search"
+                                            placeholder="🔍 Search summaries..."
+                                            className="ov-filter-input ov-filter-search"
+                                            value={convFilters.search}
+                                            onChange={handleConvFilterChange}
+                                        />
+                                        <select
+                                            name="outcome"
+                                            className="ov-filter-input"
+                                            value={convFilters.outcome}
+                                            onChange={handleConvFilterChange}
+                                        >
+                                            <option value="">🎯 All Outcomes</option>
+                                            <option value="completed">✅ Completed</option>
+                                            <option value="abandoned">❌ Abandoned</option>
+                                            <option value="escalated">📞 Escalated</option>
+                                        </select>
+                                        <button className="ov-filter-reset" onClick={handleConvFilterReset}>
+                                            ➜ Reset
+                                        </button>
+                                    </div>
 
-                                {/* KPI Cards */}
-                                <div className="ov-kpi-row">
-                                    <div className="ov-kpi-card">
-                                        <span className="ov-kpi-icon">💬</span>
-                                        <div>
-                                            <div className="ov-kpi-value">{convPagination.total}</div>
-                                            <div className="ov-kpi-label">Total Conversations</div>
-                                        </div>
-                                    </div>
-                                    <div className="ov-kpi-card">
-                                        <span className="ov-kpi-icon">⏱️</span>
-                                        <div>
-                                            <div className="ov-kpi-value">
-                                                {conversations.length > 0 
-                                                    ? Math.round(conversations.reduce((acc, c) => acc + (parseFloat(c.duration_minutes) || 0), 0) / conversations.length * 10) / 10
-                                                    : 0}
+                                    {/* KPI Cards */}
+                                    <div className="ov-kpi-grid">
+                                        <div className="ov-kpi-card total-convs">
+                                            <span className="ov-kpi-icon">💬</span>
+                                            <div>
+                                                <div className="ov-kpi-value">{convPagination.total}</div>
+                                                <div className="ov-kpi-label">Total Conversations</div>
                                             </div>
-                                            <div className="ov-kpi-label">Avg Duration (min)</div>
                                         </div>
-                                    </div>
-                                    <div className="ov-kpi-card">
-                                        <span className="ov-kpi-icon">🔄</span>
-                                        <div>
-                                            <div className="ov-kpi-value">
-                                                {conversations.length > 0 
-                                                    ? Math.round(conversations.reduce((acc, c) => acc + (parseInt(c.turn_count) || 0), 0) / conversations.length)
-                                                    : 0}
+                                        <div className="ov-kpi-card avg-duration">
+                                            <span className="ov-kpi-icon">⏱️</span>
+                                            <div>
+                                                <div className="ov-kpi-value">
+                                                    {conversations.length > 0 
+                                                        ? Math.round(conversations.reduce((acc, c) => acc + (parseFloat(c.duration_minutes) || 0), 0) / conversations.length * 10) / 10
+                                                        : 0}
+                                                </div>
+                                                <div className="ov-kpi-label">Avg Duration (min)</div>
                                             </div>
-                                            <div className="ov-kpi-label">Avg Turns</div>
                                         </div>
-                                    </div>
-                                    <div className="ov-kpi-card">
-                                        <span className="ov-kpi-icon">✅</span>
-                                        <div>
-                                            <div className="ov-kpi-value">
-                                                {conversations.filter(c => c.outcome === 'completed').length}
+                                        <div className="ov-kpi-card avg-turns">
+                                            <span className="ov-kpi-icon">🔄</span>
+                                            <div>
+                                                <div className="ov-kpi-value">
+                                                    {conversations.length > 0 
+                                                        ? Math.round(conversations.reduce((acc, c) => acc + (parseInt(c.turn_count) || 0), 0) / conversations.length)
+                                                        : 0}
+                                                </div>
+                                                <div className="ov-kpi-label">Avg Turns</div>
                                             </div>
-                                            <div className="ov-kpi-label">Completed</div>
+                                        </div>
+                                        <div className="ov-kpi-card completed">
+                                            <span className="ov-kpi-icon">✅</span>
+                                            <div>
+                                                <div className="ov-kpi-value">
+                                                    {conversations.filter(c => c.outcome === 'completed').length}
+                                                </div>
+                                                <div className="ov-kpi-label">Completed</div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
                                 {/* Conversation List */}
                                 <div className="ov-conv-list">

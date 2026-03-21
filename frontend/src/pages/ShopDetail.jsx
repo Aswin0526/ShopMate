@@ -8,6 +8,7 @@ function ShopDetail() {
   const { state } = useLocation();
   const { shopId, shopType, shopName, custId } = state || {};
   const token = localStorage.getItem('access_token');
+
   const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,6 @@ function ShopDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showChat, setShowChat] = useState(false);
-  const [showVoice, setShowVoice] = useState(false);
 
   const [formData, setFormData] = useState({
     shopName: '',
@@ -43,17 +43,25 @@ function ShopDetail() {
     productType: '',
   });
 
-  const handleChatClose = () => {
-    setShowChat(false);
+  const handleVoiceClick = async () => {
+    const started = await prepareChatSession();
+    if (started) {
+      setShowVoiceChat(true);
+    }
   };
 
-  const handleVoiceOpen = () => {
-    setShowChat(false);
-    setShowVoice(true);
-  };
-
-  const handleVoiceClose = () => {
-    setShowVoice(false);
+  const handleTextClick = async () => {
+    const started = await prepareChatSession();
+    if (started) {
+      navigate('/shop-detail/text-chat', {
+        state: {
+          shopId,
+          shopType,
+          shopName,
+          custId
+        }
+      });
+    }
   };
   
   const handleStarClick = (rating) => {
@@ -428,15 +436,15 @@ function ShopDetail() {
     navigate(-1);
   };
 
-  const handleChatClick = async () => {
-    console.log('Chat clicked, shop details:', {
+  const prepareChatSession = async () => {
+    console.log('Starting chat session, shop details:', {
       type: shop?.type,
       city: shop?.shop_city,
       state: shop?.shop_state,
       country: shop?.shop_country,
       shopName: shop?.shop_name
     });
-    
+
     try {
       let session_id = localStorage.getItem('session_id');
       if (!session_id) {
@@ -445,7 +453,6 @@ function ShopDetail() {
       }
       console.log("Using session_id:", session_id);
 
-      // Prepare formData with shop details
       const formData = {
         shopName: shop?.shop_name || '',
         shopId: shopId || '',
@@ -469,33 +476,34 @@ function ShopDetail() {
           }),
         }
       );
+
       const data = await response.json();
       console.log("Backend response:", data);
-      
+
       if (!data.message) {
         console.error("Failed to start a chat");
         showNotification("Failed to start chat", "error");
-      } else {
-        // Store session_id from backend response (for verification)
-        if (data.session_id) {
-          localStorage.setItem('session_id', data.session_id);
-          console.log("Session ID stored:", data.session_id);
-        }
-        console.log("Chat session started successfully!");
-        const sc_details = {
-          "shopId" : shopId,
-          "shopType" : shopType,
-          "shopName" : shopName,
-          "custId" : custId
-        }
-        localStorage.setItem("sc_details", JSON.stringify(sc_details));
-        showNotification("Chat session started!", "success");
-        setShowVoiceChat(true);
+        return false;
       }
 
+      if (data.session_id) {
+        localStorage.setItem('session_id', data.session_id);
+        console.log("Session ID stored:", data.session_id);
+      }
+
+      const sc_details = {
+        shopId,
+        shopType,
+        shopName,
+        custId
+      };
+      localStorage.setItem("sc_details", JSON.stringify(sc_details));
+      showNotification("Chat session started!", "success");
+      return true;
     } catch (err) {
       console.error("Error starting chat:", err);
       showNotification("Error starting chat session", "error");
+      return false;
     }
   };
 
@@ -562,14 +570,15 @@ function ShopDetail() {
 
   return (
     <div className="shop-detail-container">
-      {/* Chat Icon */}
-      <button
-        className="chat-fab"
-        onClick={handleChatClick}
-        title="Chat"
-      >
-        💬
-      </button>
+      {/* Split Chat Button - Two Parts One Unit */}
+      <div className="chat-split-fab">
+        <button className="chat-half voice-half" onClick={handleVoiceClick} title="Voice Chat">
+          🎤
+        </button>
+        <button className="chat-half text-half" onClick={handleTextClick} title="Text Chat">
+          💬
+        </button>
+      </div>
 
       {/* Notification Toast */}
       {notification && (

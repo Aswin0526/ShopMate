@@ -353,26 +353,63 @@ body { font-family: var(--ff-body); background: var(--ov-bg); color: var(--ov-te
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f8f9fc;
-  border: 1px solid var(--ov-border);
-  border-radius: 12px;
-  padding: 14px;
+  background: linear-gradient(145deg, #ffffff, #f3f4f8);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 16px;
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all .3s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
 }
 
-.ov-kpi-icon { font-size: 22px; flex-shrink: 0; }
+.ov-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,.1), transparent);
+  transition: left .6s;
+}
+
+.ov-kpi-card:hover::before { left: 100%; }
+
+.ov-kpi-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(99,102,241,.2);
+  border-color: rgba(99,102,241,.3);
+}
+
+.ov-kpi-icon { 
+  font-size: 24px; 
+  flex-shrink: 0; 
+  animation: kpiFloat 2s ease-in-out infinite;
+}
+
+@keyframes kpiFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
 
 .ov-kpi-value {
   font-family: var(--ff-heading);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--ov-text);
   line-height: 1;
+  background: linear-gradient(135deg, var(--ov-accent), var(--ov-accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .ov-kpi-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ov-muted);
-  margin-top: 3px;
+  margin-top: 2px;
+  font-weight: 500;
 }
 
 /* ── Breakdown + Daily chart ──────────────────────────────────────── */
@@ -500,18 +537,35 @@ body { font-family: var(--ff-body); background: var(--ov-bg); color: var(--ov-te
 }
 
 .ov-conv-card {
-  border: 1px solid var(--ov-border);
-  border-radius: 12px;
-  padding: 14px 16px;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 16px;
+  padding: 18px 20px;
   cursor: pointer;
-  transition: border-color .15s, box-shadow .15s, background .15s;
-  background: white;
+  transition: all .3s cubic-bezier(0.23, 1, 0.32, 1);
+  background: linear-gradient(145deg, #ffffff, #fbfcff);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
 }
 
+.ov-conv-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ov-accent), transparent);
+  transition: left .5s;
+}
+
+.ov-conv-card:hover::before { left: 100%; }
+
 .ov-conv-card:hover {
+  transform: translateY(-4px) scale(1.02);
   border-color: var(--ov-accent);
-  box-shadow: 0 2px 12px rgba(99,102,241,.1);
-  background: #fafbff;
+  box-shadow: 0 20px 40px rgba(99,102,241,.25);
+  background: linear-gradient(145deg, #ffffff, #f8faff);
 }
 
 .ov-conv-card-top {

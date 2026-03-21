@@ -837,30 +837,58 @@
   margin-bottom: 24px;
 }
 
-/* Chat Button */
-.chat-fab {
+/* Split Chat Button - Two Parts One Unit */
+.chat-split-fab {
   position: fixed;
   top: 20px;
   right: 20px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: var(--gradient-primary);
-  color: white;
+  display: flex;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  z-index: 1000;
+  transition: var(--transition);
+  overflow: hidden;
+  width: 90px;
+  height: 65px;
+}
+
+.chat-half {
+  flex: 1;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  box-shadow: var(--shadow-lg);
-  z-index: 1000;
+  font-size: 26px;
   transition: var(--transition);
+  position: relative;
 }
 
-.chat-fab:hover {
-  transform: scale(1.1);
-  box-shadow: var(--shadow-xl);
+.voice-half {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.text-half {
+  background: linear-gradient(135deg, #00bcd4, #2196f3);
+  color: white;
+}
+
+.chat-split-fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 20px 30px rgba(0,0,0,0.2);
+}
+
+.chat-split-fab::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  background: rgba(255,255,255,0.6);
+  z-index: 1;
 }
 
 /* Responsive Design */

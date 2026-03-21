@@ -4,6 +4,7 @@ import Register from './pages/Register'
 import Customerdash from './pages/Customerdash'
 import Shopdash from './pages/Shopdash'
 import ShopDetail from './pages/ShopDetail'
+import TextChat from './pages/TextChat'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -36,6 +37,14 @@ function App() {
           element={
             <ProtectedRoute allowedUserTypes={['customer']}>
               <ShopDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path='/shop-detail/text-chat'
+          element={
+            <ProtectedRoute allowedUserTypes={['customer']}>
+              <TextChat />
             </ProtectedRoute>
           }
         />

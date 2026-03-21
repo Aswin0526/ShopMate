@@ -28,6 +28,112 @@
   animation: voiceModalSlideIn 0.4s ease-out;
 }
 
+.voice-page-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #120627;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-page-container {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(160deg, #2d0060 0%, #4b0082 30%, #6610f2 65%, #6f42c1 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.voice-messages {
+  width: 100%;
+  max-width: 720px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.14);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.voice-message {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: #f4f7ff;
+}
+
+.voice-message-user {
+  align-self: flex-end;
+  background: rgba(0, 160, 130, 0.8);
+}
+
+.voice-message-bot {
+  align-self: flex-start;
+  background: rgba(20, 20, 80, 0.8);
+}
+
+.voice-empty-message {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.voice-text-input-bar {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.voice-text-input {
+  flex: 1;
+  height: 44px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.15);
+  color: white;
+  padding: 0 12px;
+  font-size: 16px;
+  outline: none;
+}
+
+.voice-text-input::placeholder {
+  color: rgba(255,255,255,0.6);
+}
+
+.voice-text-send-btn {
+  min-width: 80px;
+  padding: 10px 14px;
+  border-radius: 20px;
+  border: none;
+  background: #24d997;
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.voice-text-send-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.voice-text-send-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 @keyframes voiceModalSlideIn {
   from { opacity: 0; transform: translateY(-30px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0)    scale(1);    }
