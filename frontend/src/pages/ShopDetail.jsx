@@ -8,7 +8,6 @@ function ShopDetail() {
   const { state } = useLocation();
   const { shopId, shopType, shopName, custId } = state || {};
   const token = localStorage.getItem('access_token');
-
   const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,12 +26,19 @@ function ShopDetail() {
   const [wishlistLoading, setWishlistLoading] = useState({});
   const [notification, setNotification] = useState(null);
 
+  const [mapDialogVisible, setMapDialogVisible] = useState(false);
+  const [currentMapProduct, setCurrentMapProduct] = useState(null);
+  const [currentMapStep, setCurrentMapStep] = useState(1);
+  const [mapDirections, setMapDirections] = useState(null);
+  const [mapLoading, setMapLoading] = useState(false);
+
   const [userRating, setUserRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [userFeedback, setUserFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showChat, setShowChat] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
 
   const [formData, setFormData] = useState({
     shopName: '',
@@ -43,27 +49,19 @@ function ShopDetail() {
     productType: '',
   });
 
-  const handleVoiceClick = async () => {
-    const started = await prepareChatSession();
-    if (started) {
-      setShowVoiceChat(true);
-    }
+  const handleChatClose = () => {
+    setShowChat(false);
   };
 
-  const handleTextClick = async () => {
-    const started = await prepareChatSession();
-    if (started) {
-      navigate('/shop-detail/text-chat', {
-        state: {
-          shopId,
-          shopType,
-          shopName,
-          custId
-        }
-      });
-    }
+  const handleVoiceOpen = () => {
+    setShowChat(false);
+    setShowVoice(true);
   };
-  
+
+  const handleVoiceClose = () => {
+    setShowVoice(false);
+  };
+
   const handleStarClick = (rating) => {
     setUserRating(rating);
     console.log('Star clicked - Rating:', rating);
@@ -76,9 +74,9 @@ function ShopDetail() {
     });
     try {
       console.log("inside feedback");
-            const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL}/api/customers/addfeedback`,
-                {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/customers/addfeedback`,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -111,7 +109,7 @@ function ShopDetail() {
 
   const fetchWishlist = async () => {
     if (!custId) return;
-    
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL}/api/customers/getWishList`,
@@ -138,9 +136,9 @@ function ShopDetail() {
     const productId = product.id;
     console.log(productId);
     const isInWishlist = wishlist.has(productId);
-    
+
     setWishlistLoading(prev => ({ ...prev, [productId]: true }));
-    
+
     if (isInWishlist) {
       setWishlist(prev => {
         const newWishlist = new Set(prev);
@@ -150,7 +148,7 @@ function ShopDetail() {
     } else {
       setWishlist(prev => new Set([...prev, productId]));
     }
-    
+
     try {
       const endpoint = isInWishlist ? '/api/customers/removeWishList' : '/api/customers/addWishList';
       const response = await fetch(
@@ -170,7 +168,7 @@ function ShopDetail() {
           }),
         }
       );
-      
+
       const data = await response.json();
       if (data.success) {
         showNotification(
@@ -215,10 +213,10 @@ function ShopDetail() {
 
   const normalizedShopName = shopName
     ? shopName
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_]/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
     : '';
 
   const tableName = shopId && shopType && shopName ? `${shopType}_${shopId}_${normalizedShopName}` : '';
@@ -226,7 +224,7 @@ function ShopDetail() {
 
   const fetchProducts = async () => {
     if (!tableName) return;
-    
+
     try {
       setLoading(true);
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-products`, {
@@ -307,13 +305,13 @@ function ShopDetail() {
 
   useEffect(() => {
     if (!shopId) return;
-    
+
     const fetchAvgRating = async () => {
       try {
         const token = localStorage.getItem('access_token');
-            const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL}/api/owners/getAvgRatings`,
-                {
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/owners/getAvgRatings`,
+          {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -335,6 +333,37 @@ function ShopDetail() {
     fetchAvgRating();
   }, [shopId]);
 
+  const handleOpenMap = async (product) => {
+    try {
+      setCurrentMapProduct(product);
+      setMapDialogVisible(true);
+      setCurrentMapStep(1);
+      setMapLoading(true);
+      setMapDirections(null);
+
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-product-directions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ product_id: product.id || product.cosmetics_id, shop_id: shopId })
+      });
+
+      const result = await response.json();
+      if (result.success && result.data) {
+        setMapDirections(result.data);
+      } else {
+        setMapDirections(null);
+      }
+    } catch (err) {
+      console.error("Error fetching map directions:", err);
+      setMapDirections(null);
+    } finally {
+      setMapLoading(false);
+    }
+  };
+
   // Fetch feedbacks
   useEffect(() => {
     if (!shopId) return;
@@ -342,9 +371,9 @@ function ShopDetail() {
     const fetchFeedbacks = async () => {
       try {
         const token = localStorage.getItem('access_token');
-            const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL}/api/owners/getfeedbacks`,
-                {
+        const response = await fetch(
+          `${import.meta.env.VITE_BACKEND_URL}/api/owners/getfeedbacks`,
+          {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -374,8 +403,8 @@ function ShopDetail() {
     const fetchShopImages = async () => {
       try {
         const token = localStorage.getItem('access_token');
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-shop-images`, {
-        method: 'POST',
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/get-shop-images`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
@@ -436,8 +465,8 @@ function ShopDetail() {
     navigate(-1);
   };
 
-  const prepareChatSession = async () => {
-    console.log('Starting chat session, shop details:', {
+  const handleChatClick = async () => {
+    console.log('Chat clicked, shop details:', {
       type: shop?.type,
       city: shop?.shop_city,
       state: shop?.shop_state,
@@ -453,6 +482,7 @@ function ShopDetail() {
       }
       console.log("Using session_id:", session_id);
 
+      // Prepare formData with shop details
       const formData = {
         shopName: shop?.shop_name || '',
         shopId: shopId || '',
@@ -476,34 +506,33 @@ function ShopDetail() {
           }),
         }
       );
-
       const data = await response.json();
       console.log("Backend response:", data);
 
       if (!data.message) {
         console.error("Failed to start a chat");
         showNotification("Failed to start chat", "error");
-        return false;
+      } else {
+        // Store session_id from backend response (for verification)
+        if (data.session_id) {
+          localStorage.setItem('session_id', data.session_id);
+          console.log("Session ID stored:", data.session_id);
+        }
+        console.log("Chat session started successfully!");
+        const sc_details = {
+          "shopId": shopId,
+          "shopType": shopType,
+          "shopName": shopName,
+          "custId": custId
+        }
+        localStorage.setItem("sc_details", JSON.stringify(sc_details));
+        showNotification("Chat session started!", "success");
+        setShowVoiceChat(true);
       }
 
-      if (data.session_id) {
-        localStorage.setItem('session_id', data.session_id);
-        console.log("Session ID stored:", data.session_id);
-      }
-
-      const sc_details = {
-        shopId,
-        shopType,
-        shopName,
-        custId
-      };
-      localStorage.setItem("sc_details", JSON.stringify(sc_details));
-      showNotification("Chat session started!", "success");
-      return true;
     } catch (err) {
       console.error("Error starting chat:", err);
       showNotification("Error starting chat session", "error");
-      return false;
     }
   };
 
@@ -536,31 +565,31 @@ function ShopDetail() {
 
   const processImageSrc = (data) => {
     if (!data) return null;
-    
+
     try {
       let base64String = '';
 
       if (data && data.type === 'Buffer' && Array.isArray(data.data)) {
         const uint8 = new Uint8Array(data.data);
         base64String = btoa(String.fromCharCode.apply(null, uint8));
-      } 
+      }
 
       else if (typeof data === 'string') {
         let clean = data.trim().replace(/['"]+/g, '');
-        
+
         if (clean.includes('base64,ZGF0Y')) {
           const encodedPart = clean.split('base64,')[1];
           return processImageSrc(atob(encodedPart));
         }
-        
+
         if (clean.startsWith('data:image')) return clean;
         base64String = clean;
       } else {
         return null;
       }
 
-      return base64String.startsWith('data:image') 
-        ? base64String 
+      return base64String.startsWith('data:image')
+        ? base64String
         : `data:image/jpeg;base64,${base64String}`;
     } catch (e) {
       console.error("Error processing image:", e);
@@ -570,15 +599,14 @@ function ShopDetail() {
 
   return (
     <div className="shop-detail-container">
-      {/* Split Chat Button - Two Parts One Unit */}
-      <div className="chat-split-fab">
-        <button className="chat-half voice-half" onClick={handleVoiceClick} title="Voice Chat">
-          🎤
-        </button>
-        <button className="chat-half text-half" onClick={handleTextClick} title="Text Chat">
-          💬
-        </button>
-      </div>
+      {/* Chat Icon */}
+      <button
+        className="chat-fab"
+        onClick={handleChatClick}
+        title="Chat"
+      >
+        💬
+      </button>
 
       {/* Notification Toast */}
       {notification && (
@@ -749,7 +777,7 @@ function ShopDetail() {
               {userRating > 0 ? `${userRating} star${userRating > 1 ? 's' : ''}` : 'Select a rating'}
             </span>
           </div>
-          
+
           <div className="feedback-input-container">
             <label className="feedback-label" htmlFor="user-feedback">Your Feedback:</label>
             <textarea
@@ -761,8 +789,8 @@ function ShopDetail() {
               rows={4}
             />
           </div>
-          
-          <button 
+
+          <button
             className="submit-feedback-btn"
             onClick={handleFeedbackSubmit}
             disabled={userRating === 0}
@@ -801,6 +829,7 @@ function ShopDetail() {
                 </th>
               ))}
               <th>Images</th>
+              <th>Map</th>
               <th>Wishlist</th>
             </tr>
           </thead>
@@ -812,7 +841,7 @@ function ShopDetail() {
                     const value = product[col.column_name];
                     const columnType = col.data_type;
                     let displayValue = value;
-                    
+
                     if (value === null || value === undefined) {
                       displayValue = '-';
                     } else if (columnType === 'numeric' || columnType === 'decimal') {
@@ -822,7 +851,7 @@ function ShopDetail() {
                     } else if (columnType === 'date') {
                       displayValue = new Date(value).toLocaleDateString();
                     }
-                    
+
                     return (
                       <td key={col.column_name}>
                         {displayValue}
@@ -860,49 +889,67 @@ function ShopDetail() {
                     </div>
 
                   </td>
+                  {/* Map Button Cell */}
+                  <td className="map-cell">
+                    <button
+                      onClick={() => handleOpenMap(product)}
+                      style={{
+                        padding: "6px 12px",
+                        backgroundColor: "#4c6ef5",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "20px",
+                        cursor: "pointer",
+                        fontWeight: "500",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      Start
+                    </button>
+                  </td>
                   {/* Wishlist Button Cell */}
-                 <td>
-                  {(() => {
-                    console.log(product);
-                    const productId = product.id;
-                    const isInWishlist = wishlist.has(productId);
-                    const isLoading = wishlistLoading[productId];
-                    return (
-                      <button
-                        onClick={() => handleToggleWishlist(product)}
-                        disabled={isLoading}
-                        style={{
-                          padding: "6px 12px",
-                          backgroundColor: isInWishlist ? "#FF6B6B" : "#f8f9fa",
-                          color: isInWishlist ? "#fff" : "#333",
-                          border: isInWishlist ? "none" : "1px solid #ddd",
-                          borderRadius: "20px",
-                          cursor: isLoading ? "wait" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          transition: "all 0.2s ease",
-                        }}
-                        title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
-                      >
-                        {isLoading ? (
-                          <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
-                        ) : (
-                          <span style={{ 
-                            fontSize: "16px",
-                            transition: "transform 0.2s ease",
-                            transform: isInWishlist ? "scale(1.1)" : "scale(1)"
-                          }}>
-                            {isInWishlist ? "❤️" : "🤍"}
-                          </span>
-                        )}
-                        <span>{isInWishlist ? "Wishlisted" : "Wishlist"}</span>
-                      </button>
-                    );
-                  })()}
-                </td>
+                  <td>
+                    {(() => {
+                      console.log(product);
+                      const productId = product.id;
+                      const isInWishlist = wishlist.has(productId);
+                      const isLoading = wishlistLoading[productId];
+                      return (
+                        <button
+                          onClick={() => handleToggleWishlist(product)}
+                          disabled={isLoading}
+                          style={{
+                            padding: "6px 12px",
+                            backgroundColor: isInWishlist ? "#FF6B6B" : "#f8f9fa",
+                            color: isInWishlist ? "#fff" : "#333",
+                            border: isInWishlist ? "none" : "1px solid #ddd",
+                            borderRadius: "20px",
+                            cursor: isLoading ? "wait" : "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                            transition: "all 0.2s ease",
+                          }}
+                          title={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                        >
+                          {isLoading ? (
+                            <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                          ) : (
+                            <span style={{
+                              fontSize: "16px",
+                              transition: "transform 0.2s ease",
+                              transform: isInWishlist ? "scale(1.1)" : "scale(1)"
+                            }}>
+                              {isInWishlist ? "❤️" : "🤍"}
+                            </span>
+                          )}
+                          <span>{isInWishlist ? "Wishlisted" : "Wishlist"}</span>
+                        </button>
+                      );
+                    })()}
+                  </td>
                 </tr>
               ))
             ) : (
@@ -933,7 +980,7 @@ function ShopDetail() {
           >
             «
           </button>
-          
+
           {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
             let pageNum;
             if (totalPages <= 5) {
@@ -945,7 +992,7 @@ function ShopDetail() {
             } else {
               pageNum = currentPage - 2 + i;
             }
-            
+
             return (
               <button
                 key={pageNum}
@@ -956,7 +1003,7 @@ function ShopDetail() {
               </button>
             );
           })}
-          
+
           <button
             onClick={() => setCurrentPage(prev => prev + 1)}
             disabled={currentPage === totalPages}
@@ -976,8 +1023,8 @@ function ShopDetail() {
 
       {/* Image Preview Modal */}
       {previewImage && (
-        <div 
-          className="image-preview-overlay" 
+        <div
+          className="image-preview-overlay"
           onClick={() => setPreviewImage(null)}
           style={{
             position: 'fixed',
@@ -994,7 +1041,7 @@ function ShopDetail() {
           }}
         >
           <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
-            <button 
+            <button
               onClick={() => setPreviewImage(null)}
               style={{
                 position: 'absolute',
@@ -1009,16 +1056,128 @@ function ShopDetail() {
             >
               ×
             </button>
-            <img 
-              src={previewImage} 
-              alt="Preview" 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '80vh', 
+            <img
+              src={previewImage}
+              alt="Preview"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
                 borderRadius: '8px',
-                boxShadow: '0 5px 15px rgba(0,0,0,0.5)' 
-              }} 
+                boxShadow: '0 5px 15px rgba(0,0,0,0.5)'
+              }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Map Dialog Modal */}
+      {mapDialogVisible && (
+        <div className="map-modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 3000, display: 'flex',
+          alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="map-modal-content" style={{
+            backgroundColor: '#fff', padding: '20px', borderRadius: '12px',
+            width: '600px', maxWidth: '90%', position: 'relative', textAlign: 'center',
+            minHeight: '400px', display: 'flex', flexDirection: 'column'
+          }}>
+            <button
+              onClick={() => { setMapDialogVisible(false); setMapDirections(null); }}
+              style={{ position: 'absolute', top: '15px', right: '15px', fontSize: '28px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#333' }}
+            >×</button>
+            <h2 style={{ marginBottom: '20px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+              Directions: {currentMapProduct?.product_name || 'Product'}
+            </h2>
+
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {mapLoading ? (
+                <div style={{ fontSize: '18px', color: '#666' }}>Loading map data...</div>
+              ) : mapDirections ? (
+                (() => {
+                  const currentImageRaw = mapDirections[`image${currentMapStep}`];
+                  const currentDir = mapDirections[`direction${currentMapStep}`];
+
+                  // Empty step reached, meaning path is complete
+                  if (!currentImageRaw && !currentDir) {
+                    return (
+                      <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
+                        <div style={{ fontSize: '60px', marginBottom: '15px' }}>🏁</div>
+                        <h3 style={{ color: '#4CAF50', fontSize: '24px' }}>You have reached the destination!</h3>
+                      </div>
+                    );
+                  }
+
+                  const imgSrc = processImageSrc(currentImageRaw);
+
+                  return (
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%', animation: 'fadeIn 0.3s' }}>
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={`Step ${currentMapStep}`}
+                          style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '100%', height: '300px', backgroundColor: '#f5f5f5',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          borderRadius: '8px', border: '2px dashed #ccc', color: '#888',
+                          fontSize: '20px'
+                        }}>
+                          No Map Image
+                        </div>
+                      )}
+
+                      {currentDir && (() => {
+                        // Icon points RIGHT by default (>>).
+                        // forward=up → -90°, backward=down → +90°, left → 180°, right → 0°
+                        const rotationMap = { forward: -90, backward: 90, left: 180, right: 0 };
+                        const animKeyMap = {
+                          forward: 'chevron-move-up',
+                          backward: 'chevron-move-down',
+                          left: 'chevron-move-left',
+                          right: 'chevron-move-right',
+                        };
+                        const rotation = rotationMap[currentDir] ?? 0;
+                        const animName = animKeyMap[currentDir] ?? 'chevron-move-right';
+
+                        return (
+                          <div
+                            onClick={() => setCurrentMapStep(prev => prev + 1)}
+                            title={`Go ${currentDir}`}
+                            style={{
+                              position: 'absolute', top: '50%', left: '50%',
+                              cursor: 'pointer',
+                              animation: `${animName} 0.85s ease-in-out infinite`,
+                            }}
+                          >
+                            <img
+                              src="/direction-arrow.svg"
+                              alt={currentDir}
+                              draggable={false}
+                              style={{
+                                width: '90px',
+                                height: '90px',
+                                objectFit: 'contain',
+                                transform: `rotate(${rotation}deg)`,
+                                filter: 'drop-shadow(0 0 10px rgba(0, 200, 255, 0.85))',
+                                display: 'block',
+                                pointerEvents: 'none',
+                              }}
+                            />
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div style={{ fontSize: '18px', color: '#888' }}>
+                  No directions available for this product.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
