@@ -341,6 +341,30 @@ Write the FINAL response to: "{user_message}"
 """
 
 
+# ── Product Extractor Prompt ──────────────────────────────────────────────
+PRODUCT_EXTRACTOR_PROMPT = """You are a data formatter. Convert the following SQL results into a structured JSON list of products.
+SQL Results: {sql_results}
+
+REQUIRED JSON FORMAT:
+{{
+  "products": [
+    {{
+      "name": "Product Name",
+      "description": "Short 1-2 line description",
+      "price": "Price with currency",
+      "stock": "Available quantity",
+      "images": ["url1", "url2"]
+    }}
+  ]
+}}
+
+RULES:
+1. If SQL Results is empty or contains no products, return {{"products": []}}.
+2. If image URLs are not in the SQL results, provide at least 2 relevant placeholder image URLs (e.g., https://picsum.photos/seed/product_name/600/400).
+3. Keep descriptions brief (1-2 lines).
+4. Output ONLY valid JSON.
+"""
+
 
 def is_empty_sql_result(result: str) -> bool:
     """
@@ -601,6 +625,19 @@ class ConversationalAgent:
         final        = llm.invoke([{"role": "user", "content": formatter_prompt}])
         response_text = final.content.strip()
 
+        # ── Step 4b: Extract structured products if SQL was successful ───
+        products = []
+        if not sql_was_empty and sql_results:
+            try:
+                extractor_prompt = PRODUCT_EXTRACTOR_PROMPT.format(sql_results=sql_results)
+                extract_resp = llm.invoke([{"role": "user", "content": extractor_prompt}])
+                clean_extract = re.sub(r"```(?:json)?\s*([\s\S]*?)\s*```", r"\1", extract_resp.content).strip()
+                extracted_data = json.loads(clean_extract)
+                products = extracted_data.get("products", [])
+            except Exception as e:
+                logger.error(f"Product extraction error: {e}")
+                products = []
+
         # ── Step 5: Persist to history ───────────────────────────────────
         self.session["chat_history"].append({
             "role":          "user",
@@ -620,7 +657,8 @@ class ConversationalAgent:
             "image_context":    plan.get("image_context") or None,
             "needs_wishlist":   bool(plan.get("needs_wishlist")),
             "wishlist_keyword": plan.get("wishlist_keyword") or None,
-            "wishlist_products": wishlist_products
+            "wishlist_products": wishlist_products,
+            "products":          products
         }
 
     def _parse_plan(self, content: str) -> dict:
@@ -969,6 +1007,7 @@ def transcribe():
         "needs_wishlist":    result.get("needs_wishlist", False),
         "wishlist_keyword":  result.get("wishlist_keyword"),
         "wishlist_products": result.get("wishlist_products", []),
+        "products":          result.get("products", []),
         "stage":             session_data.get("current_stage", "BROWSING"),
         "session_id":        session_id
     }), 200
