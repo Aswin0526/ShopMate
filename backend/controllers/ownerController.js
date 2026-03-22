@@ -1239,7 +1239,7 @@ const addProduct = async (req, res) => {
       `SELECT column_name, data_type 
        FROM information_schema.columns 
        WHERE table_name = $1 
-         AND column_name NOT IN ('id', 'cosmetics_id', 'created_at', 'updated_at')
+         AND column_name NOT IN ('id', 'created_at', 'updated_at')
        ORDER BY ordinal_position`,
       [table_name]
     );
@@ -1302,14 +1302,13 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    const idColumn =
-      shop_type?.toLowerCase() === "cosmetics" ? "cosmetics_id" : "id";
+    const idColumn = "id"
 
     const columnsResult = await pool.query(
       `SELECT column_name, data_type 
        FROM information_schema.columns 
        WHERE table_name = $1 
-         AND column_name NOT IN ('id', 'cosmetics_id', 'created_at', 'updated_at')
+         AND column_name NOT IN ('id', 'created_at', 'updated_at')
        ORDER BY ordinal_position`,
       [table_name]
     );
@@ -1377,8 +1376,7 @@ const deleteProduct = async (req, res) => {
       });
     }
 
-    const idColumn =
-      shop_type?.toLowerCase() === "cosmetics" ? "cosmetics_id" : "id";
+    const idColumn = "id"
 
     const deleteQuery = `DELETE FROM ${table_name} WHERE ${idColumn} = $1 RETURNING *`;
     const result = await pool.query(deleteQuery, [product_id]);

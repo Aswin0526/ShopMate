@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import TextChat from './TextChat';
 import '../styles//ShopDetail.css';
 import Voice from '../components/Voice';
 
@@ -39,6 +40,7 @@ function ShopDetail() {
 
   const [showChat, setShowChat] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
+  const [showTextChat, setShowTextChat] = useState(false);
 
   const [formData, setFormData] = useState({
     shopName: '',
@@ -347,7 +349,7 @@ function ShopDetail() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ product_id: product.id || product.cosmetics_id, shop_id: shopId })
+        body: JSON.stringify({ product_id: product.id, shop_id: shopId })
       });
 
       const result = await response.json();
@@ -465,8 +467,8 @@ function ShopDetail() {
     navigate(-1);
   };
 
-  const handleChatClick = async () => {
-    console.log('Chat clicked, shop details:', {
+  const handleVoiceChatClick = async () => {
+    console.log('Voice chat clicked, shop details:', {
       type: shop?.type,
       city: shop?.shop_city,
       state: shop?.shop_state,
@@ -482,7 +484,6 @@ function ShopDetail() {
       }
       console.log("Using session_id:", session_id);
 
-      // Prepare formData with shop details
       const formData = {
         shopName: shop?.shop_name || '',
         shopId: shopId || '',
@@ -511,14 +512,12 @@ function ShopDetail() {
 
       if (!data.message) {
         console.error("Failed to start a chat");
-        showNotification("Failed to start chat", "error");
+        showNotification("Failed to start voice chat", "error");
       } else {
-        // Store session_id from backend response (for verification)
         if (data.session_id) {
           localStorage.setItem('session_id', data.session_id);
-          console.log("Session ID stored:", data.session_id);
         }
-        console.log("Chat session started successfully!");
+        console.log("Voice chat session started successfully!");
         const sc_details = {
           "shopId": shopId,
           "shopType": shopType,
@@ -526,13 +525,81 @@ function ShopDetail() {
           "custId": custId
         }
         localStorage.setItem("sc_details", JSON.stringify(sc_details));
-        showNotification("Chat session started!", "success");
+        showNotification("Voice chat session started!", "success");
         setShowVoiceChat(true);
       }
 
     } catch (err) {
-      console.error("Error starting chat:", err);
-      showNotification("Error starting chat session", "error");
+      console.error("Error starting voice chat:", err);
+      showNotification("Error starting voice chat session", "error");
+    }
+  };
+
+  const handleTextChatClick = async () => {
+    console.log('Text chat clicked, shop details:', {
+      type: shop?.type,
+      city: shop?.shop_city,
+      state: shop?.shop_state,
+      country: shop?.shop_country,
+      shopName: shop?.shop_name
+    });
+
+    try {
+      let session_id = localStorage.getItem('session_id');
+      if (!session_id) {
+        session_id = crypto.randomUUID();
+        localStorage.setItem('session_id', session_id);
+      }
+      console.log("Using session_id:", session_id);
+
+      const formData = {
+        shopName: shop?.shop_name || '',
+        shopId: shopId || '',
+        city: shop?.shop_city || '',
+        state: shop?.shop_state || '',
+        country: shop?.shop_country || '',
+        productType: shopType || '',
+      };
+
+      const response = await fetch(
+        `${import.meta.env.VITE_CHATBOT_URL}/start-chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Session-ID": session_id
+          },
+          body: JSON.stringify({
+            session_id: session_id,
+            formData: formData
+          }),
+        }
+      );
+      const data = await response.json();
+      console.log("Backend response:", data);
+
+      if (!data.message) {
+        console.error("Failed to start a chat");
+        showNotification("Failed to start text chat", "error");
+      } else {
+        if (data.session_id) {
+          localStorage.setItem('session_id', data.session_id);
+        }
+        console.log("Text chat session started successfully!");
+        const sc_details = {
+          "shopId": shopId,
+          "shopType": shopType,
+          "shopName": shopName,
+          "custId": custId
+        }
+        localStorage.setItem("sc_details", JSON.stringify(sc_details));
+        showNotification("Text chat session started!", "success");
+        setShowTextChat(true);
+      }
+
+    } catch (err) {
+      console.error("Error starting text chat:", err);
+      showNotification("Error starting text chat session", "error");
     }
   };
 
@@ -599,14 +666,23 @@ function ShopDetail() {
 
   return (
     <div className="shop-detail-container">
-      {/* Chat Icon */}
-      <button
-        className="chat-fab"
-        onClick={handleChatClick}
-        title="Chat"
-      >
-        💬
-      </button>
+      {/* Chat Buttons */}
+      <div className="chat-split-fab">
+        <button
+          className="chat-half voice-half"
+          onClick={handleVoiceChatClick}
+          title="Voice Chat"
+        >
+          🗣️
+        </button>
+        <button
+          className="chat-half text-half"
+          onClick={handleTextChatClick}
+          title="Text Chat"
+        >
+          💬
+        </button>
+      </div>
 
       {/* Notification Toast */}
       {notification && (
@@ -1182,8 +1258,16 @@ function ShopDetail() {
         </div>
       )}
 
-      {showVoiceChat && (
+{showVoiceChat && (
         <Voice onClose={() => setShowVoiceChat(false)} />
+      )}
+{showTextChat && (
+        <div className="voice-modal-overlay">
+          <div className="voice-modal">
+            <button className="voice-modal-close" onClick={() => setShowTextChat(false)}>×</button>
+            <TextChat onClose={() => setShowTextChat(false)} isPage={true} />
+          </div>
+        </div>
       )}
     </div>
   );

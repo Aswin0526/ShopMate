@@ -190,7 +190,7 @@ const Stock = ({ Data }) => {
       };
 
       if (modalMode === 'edit') {
-        requestBody.product_id = editingProduct.id || editingProduct.cosmetics_id;
+        requestBody.product_id = editingProduct.id;
       }
 
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners${endpoint}`, {
@@ -235,7 +235,7 @@ const Stock = ({ Data }) => {
 
     try {
       const token = localStorage.getItem('access_token');
-      const productId = product.id || product.cosmetics_id;
+      const productId = product.id;
 
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/owners/delete-product`, {
         method: 'POST',
@@ -355,7 +355,7 @@ const Stock = ({ Data }) => {
          <tbody>
   {paginatedProducts.length > 0 ? (
     paginatedProducts.map((product, index) => (
-      <tr key={product.id || product.cosmetics_id || index}>
+      <tr key={product.id || index}>
         {displayColumns.map(col => {
           const value = product[col.column_name];
           const columnType =  col.data_type;
