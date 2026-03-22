@@ -30,6 +30,10 @@ const Voice = ({ onClose, isPage = false }) => {
   const [wishlistProducts, setWishlistProducts]     = useState([]);
   const [showWishlistDialog, setShowWishlistDialog] = useState(false);
 
+  // ── Product Dialog state ─────────────────────────────────────────────────
+  const [products, setProducts] = useState([]);
+  const [showProductDialog, setShowProductDialog] = useState(false);
+
   const lastTranscriptRef      = useRef("");
   const pauseTimeoutRef        = useRef(null);
   const isTranscribingRef      = useRef(false);
@@ -152,6 +156,7 @@ const Voice = ({ onClose, isPage = false }) => {
           image_context: imgContext,
           needs_wishlist: needsWishlist,
           wishlist_products: wProducts = [],
+          products: responseProducts = [],
         } = data;
 
         if (imageToSend) removeImage();
@@ -165,6 +170,12 @@ const Voice = ({ onClose, isPage = false }) => {
           // Still speak the bot's reply before showing dialog
           if (responseText) await playTTS(responseText);
           return;
+        }
+
+        // ── Product dialog ───────────────────────────────────────────────
+        if (responseProducts.length > 0) {
+          setProducts(responseProducts);
+          setShowProductDialog(true);
         }
 
         // ── Image request ────────────────────────────────────────────────
@@ -506,9 +517,259 @@ const Voice = ({ onClose, isPage = false }) => {
           </div>
         )}
 
+        {/* ── Product Display Dialog ── */}
+        {showProductDialog && (
+          <div className="product-dialog-overlay">
+            <div className="product-dialog">
+              <div className="product-dialog-header">
+                <h2>Recommended Products</h2>
+                <button className="product-dialog-close" onClick={() => setShowProductDialog(false)}>✕</button>
+              </div>
+              <div className="product-grid">
+                {products.map((product, idx) => (
+                  <ProductCard key={idx} product={product} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Inline Styles for Product Dialog */}
+        <style>{`
+          .product-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 40px;
+            z-index: 5000;
+            backdrop-filter: blur(4px);
+          }
+          .product-dialog {
+            background: #ffffff;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 85vh;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          .product-dialog-header {
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+          }
+          .product-dialog-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #1a1a1a;
+          }
+          .product-dialog-close {
+            background: #f0f0f0;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+          }
+          .product-dialog-close:hover {
+            background: #e0e0e0;
+            transform: rotate(90deg);
+          }
+          .product-grid {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            overflow-y: auto;
+          }
+          .product-card {
+            background: #fff;
+            border-radius: 16px;
+            overflow: hidden;
+            height: 420px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #f0f0f0;
+          }
+          .product-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+          }
+          .product-card-top {
+            height: 60%;
+            position: relative;
+            background: #f9f9f9;
+          }
+          .product-card-bottom {
+            height: 40%;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          }
+          .product-name {
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .product-desc {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 0 0 12px 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+          }
+          .product-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .product-price {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #2c3e50;
+          }
+          .product-stock {
+            font-size: 0.8rem;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+          }
+          
+          .carousel-view {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+          }
+          .carousel-view img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.5s ease;
+            position: absolute;
+            top: 0;
+            left: 0;
+          }
+          .carousel-dots {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+          }
+          .carousel-dot {
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+          }
+          .carousel-dot.active {
+            background: #fff;
+            transform: scale(1.2);
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+          }
+          .carousel-dot:hover {
+            background: #fff;
+            opacity: 1 !important;
+            transform: scale(1.2);
+          }
+          .product-card:hover .carousel-dot {
+            width: 10px;
+            height: 10px;
+            opacity: 0.9;
+          }
+        `}</style>
       </div>
     </div>
   );
 };
+
+const ProductCard = ({ product }) => {
+  const [currentImg, setCurrentImg] = useState(0);
+  const images = product.images || ["https://via.placeholder.com/600/400?text=Product"];
+
+  return (
+    <div className="product-card">
+      <div className="product-card-top">
+        <div className="carousel-view">
+          {images.map((img, i) => (
+            <img
+              key={i}
+              src={img}
+              alt={product.name}
+              style={{ 
+                opacity: i === currentImg ? 1 : 0,
+                zIndex: i === currentImg ? 1 : 0
+              }}
+            />
+          ))}
+          {images.length > 1 && (
+            <div className="carousel-dots">
+              {images.map((_, i) => (
+                <div
+                  key={i}
+                  className={`carousel-dot ${i === currentImg ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImg(i);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="product-card-bottom">
+        <div>
+          <h3 className="product-name">{product.name}</h3>
+          <p className="product-desc">{product.description}</p>
+        </div>
+        <div className="product-meta">
+          <span className="product-price">{product.price}</span>
+          <span className="product-stock">In Stock: {product.stock}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 
 export default Voice;
