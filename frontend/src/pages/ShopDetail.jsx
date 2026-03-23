@@ -60,13 +60,10 @@ function ShopDetail() {
     setShowVoice(true);
   };
 
-<<<<<<< HEAD
   const handleVoiceClose = () => {
     setShowVoice(false);
   };
 
-=======
->>>>>>> 1594ad2 (Virtual Try-On added)
   const handleStarClick = (rating) => {
     setUserRating(rating);
     console.log('Star clicked - Rating:', rating);
@@ -1142,12 +1139,7 @@ function ShopDetail() {
                 maxWidth: '100%',
                 maxHeight: '80vh',
                 borderRadius: '8px',
-<<<<<<< HEAD
                 boxShadow: '0 5px 15px rgba(0,0,0,0.5)'
-=======
-                boxShadow: '0 5px 15px rgba(0,0,0,0.5)',
-                display: 'block',
->>>>>>> 1594ad2 (Virtual Try-On added)
               }}
             />
             {/* Virtual Try-On button — only for clothing shops */}
