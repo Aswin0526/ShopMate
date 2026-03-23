@@ -60,10 +60,13 @@ function ShopDetail() {
     setShowVoice(true);
   };
 
+<<<<<<< HEAD
   const handleVoiceClose = () => {
     setShowVoice(false);
   };
 
+=======
+>>>>>>> 1594ad2 (Virtual Try-On added)
   const handleStarClick = (rating) => {
     setUserRating(rating);
     console.log('Star clicked - Rating:', rating);
@@ -1139,9 +1142,54 @@ function ShopDetail() {
                 maxWidth: '100%',
                 maxHeight: '80vh',
                 borderRadius: '8px',
+<<<<<<< HEAD
                 boxShadow: '0 5px 15px rgba(0,0,0,0.5)'
+=======
+                boxShadow: '0 5px 15px rgba(0,0,0,0.5)',
+                display: 'block',
+>>>>>>> 1594ad2 (Virtual Try-On added)
               }}
             />
+            {/* Virtual Try-On button — only for clothing shops */}
+            {shopType === 'clothing' && (
+              <button
+                onClick={() => {
+                  const garmentData = previewImage;
+                  const vtWindow = window.open('http://localhost:5175', '_blank');
+
+                  // Wait for VTO app to signal it's ready, then send the garment image
+                  const handler = (e) => {
+                    if (e.data === 'vto_ready') {
+                      vtWindow.postMessage({ type: 'garment', image: garmentData }, 'http://localhost:5175');
+                      window.removeEventListener('message', handler);
+                    }
+                  };
+                  window.addEventListener('message', handler);
+                }}
+                style={{
+                  position: 'absolute',
+                  bottom: '-52px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  padding: '12px 28px',
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '30px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(102,126,234,0.5)',
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '0.5px',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseOver={e => e.currentTarget.style.transform = 'translateX(-50%) scale(1.05)'}
+                onMouseOut={e => e.currentTarget.style.transform = 'translateX(-50%) scale(1)'}
+              >
+                👗 Virtual Try-On
+              </button>
+            )}
           </div>
         </div>
       )}
