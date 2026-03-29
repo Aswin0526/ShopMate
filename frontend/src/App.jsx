@@ -5,6 +5,7 @@ import Customerdash from './pages/Customerdash'
 import Shopdash from './pages/Shopdash'
 import ShopDetail from './pages/ShopDetail'
 import TextChat from './pages/TextChat'
+import VirtualTryOn from './pages/VirtualTryOn'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -37,6 +38,14 @@ function App() {
           element={
             <ProtectedRoute allowedUserTypes={['customer']}>
               <ShopDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path='/virtual-tryon' 
+          element={
+            <ProtectedRoute allowedUserTypes={['customer']}>
+              <VirtualTryOn />
             </ProtectedRoute>
           }
         />

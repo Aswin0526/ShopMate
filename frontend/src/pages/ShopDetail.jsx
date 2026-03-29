@@ -1116,7 +1116,7 @@ function ShopDetail() {
             cursor: 'zoom-out'
           }}
         >
-          <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
             <button
               onClick={() => setPreviewImage(null)}
               style={{
@@ -1145,19 +1145,7 @@ function ShopDetail() {
             {/* Virtual Try-On button — only for clothing shops */}
             {shopType === 'clothing' && (
               <button
-                onClick={() => {
-                  const garmentData = previewImage;
-                  const vtWindow = window.open('http://localhost:5175', '_blank');
-
-                  // Wait for VTO app to signal it's ready, then send the garment image
-                  const handler = (e) => {
-                    if (e.data === 'vto_ready') {
-                      vtWindow.postMessage({ type: 'garment', image: garmentData }, 'http://localhost:5175');
-                      window.removeEventListener('message', handler);
-                    }
-                  };
-                  window.addEventListener('message', handler);
-                }}
+                onClick={() => navigate('/virtual-tryon', { state: { garmentImage: previewImage } })}
                 style={{
                   position: 'absolute',
                   bottom: '-52px',
