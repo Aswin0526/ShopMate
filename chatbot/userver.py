@@ -1314,4 +1314,4 @@ def health():
 
 if __name__ == "__main__":
     logger.info("Starting ShopMate Conversational Retail Assistant")
-    app.run(host='0.0.0.0', port=3000, debug=True)
+    app.run(port=os.getenv("PORT_SERVER") or 3000, debug=True)
